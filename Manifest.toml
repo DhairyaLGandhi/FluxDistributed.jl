@@ -210,6 +210,12 @@ git-tree-sha1 = "d785f42445b63fc86caa08bb9a9351008be9b765"
 uuid = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 version = "1.2.2"
 
+[[DataLoaders]]
+deps = ["DocStringExtensions", "LearnBase", "MLDataPattern", "Parameters", "Random", "ThreadPools"]
+git-tree-sha1 = "5ca678562d2cbb0417f56b31ef083b31c654c9ce"
+uuid = "2e981812-ef13-4a9c-bfa0-ab13047b12a9"
+version = "0.1.2"
+
 [[DataSets]]
 deps = ["AbstractTrees", "Base64", "Markdown", "REPL", "ReplMaker", "ResourceContexts", "SHA", "TOML", "UUIDs"]
 git-tree-sha1 = "c636a38ebc4016df28d486d2ccd06e0e47282798"
@@ -563,7 +569,7 @@ version = "0.21.2"
 
 [[JpegTurbo_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "d735490ac75c5cb9f1b00d8b5509c11984dc6943"
+git-tree-sha1 = "9aff0587d9603ea0de2c6f6300d9f9492bbefbd3"
 uuid = "aacddb02-875f-59d6-b918-886e6ef4fbf8"
 version = "2.0.1+3"
 
@@ -588,6 +594,12 @@ version = "0.0.10+0"
 [[LazyArtifacts]]
 deps = ["Artifacts", "Pkg"]
 uuid = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
+
+[[LearnBase]]
+deps = ["LinearAlgebra", "StatsBase"]
+git-tree-sha1 = "47e6f4623c1db88570c7a7fa66c6528b92ba4725"
+uuid = "7f8f8fb0-2700-5f03-b4bd-41f8cfc144b6"
+version = "0.3.0"
 
 [[LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
@@ -651,11 +663,23 @@ git-tree-sha1 = "c253236b0ed414624b083e6b72bfe891fbd2c7af"
 uuid = "856f044c-d86e-5d09-b602-aeab76dc8ba7"
 version = "2021.1.1+1"
 
+[[MLDataPattern]]
+deps = ["LearnBase", "MLLabelUtils", "Random", "SparseArrays", "StatsBase"]
+git-tree-sha1 = "e99514e96e8b8129bb333c69e063a56ab6402b5b"
+uuid = "9920b226-0b2a-5f5f-9153-9aa70a013f8b"
+version = "0.5.4"
+
 [[MLDatasets]]
 deps = ["BinDeps", "ColorTypes", "DataDeps", "DelimitedFiles", "FixedPointNumbers", "GZip", "MAT", "PyCall", "Requires"]
 git-tree-sha1 = "65cb0a663d65d0b782ba74bfc3982ba51eb85485"
 uuid = "eb30cadb-4394-5ae3-aed4-317e484a6458"
 version = "0.5.9"
+
+[[MLLabelUtils]]
+deps = ["LearnBase", "MappedArrays", "StatsBase"]
+git-tree-sha1 = "3211c1fdd1efaefa692c8cf60e021fb007b76a08"
+uuid = "66a33bbf-0c2b-5fc8-a008-9da813334f0a"
+version = "0.5.6"
 
 [[MacroTools]]
 deps = ["Markdown", "Random"]
@@ -848,6 +872,11 @@ git-tree-sha1 = "7dff99fbc740e2f8228c6878e2aad6d7c2678098"
 uuid = "c84ed2f1-dad5-54f0-aa8e-dbefe2724439"
 version = "0.4.1"
 
+[[RecipesBase]]
+git-tree-sha1 = "44a75aa7a527910ee3d1751d1f0e4148698add9e"
+uuid = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
+version = "1.1.2"
+
 [[Reexport]]
 git-tree-sha1 = "adcd36e8ba9665c88eb0bd156d4e2a19f9b0d889"
 uuid = "189a3867-3050-52da-a836-e630ba90ab69"
@@ -973,6 +1002,12 @@ uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
 [[Test]]
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[[ThreadPools]]
+deps = ["Printf", "RecipesBase", "Statistics"]
+git-tree-sha1 = "705ccc29d575b87cceb359dfea19f4653d06df8f"
+uuid = "b189fb0b-2eb5-4ed4-bc0c-d34c51242431"
+version = "1.2.1"
 
 [[TiledIteration]]
 deps = ["OffsetArrays"]

@@ -65,6 +65,7 @@ function getgrads(loss, data_tree,
 		  opt = Optimisers.ADAM(),
 		  class_idx,
 		  cycles = 1,
+                  sz = (224, 224, 3),
                   saveweights = false,
 		  sts = [nothing for _ in ms],
 		  vals = [nothing for _ in ms],)
@@ -100,9 +101,14 @@ function getgrads(loss, data_tree,
           if n % 5 == 0
             @info "Cycle: $(n)"
           end
-          data = minibatch(dt, key; nsamples = nsamples, class_idx = class_idx)
-          dl = Flux.Data.DataLoader(gpu, data, batchsize = batchsize)
-          for (i,d) in enumerate(dl)
+          sampled_paths = @views key[rand(1:end, nsamples), :]
+          files = sampled_paths.ImageId
+          ds = ImageNetDataset(sampled_paths,
+                               files,
+                               unique(key.class_idx),
+                               sz)
+          dl = DataLoaders.DataLoader(ds, nsamples, collate = true) 
+          for (i,d) in enumerate(CuIterator(dl))
             x, y = d
             dm, _, _ = gradient(gm, x, y) do gm, x, y
               loss(gm(x), y)
