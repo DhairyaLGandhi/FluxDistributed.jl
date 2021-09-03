@@ -3,6 +3,36 @@ using Flux.CUDA
 using DataSets
 using Optimisers, Functors
 
+"""
+  syncgrads(input_channels, output_channels; verbose = false)
+
+Starts a task to monitor all the `input_channels` to receive a signal and performs synchronisation of all the terms in the input channels.
+
+The gradients from these channels are expected to be of the form of a `NamedTuple` as produced by Zygote. A typical example would be
+
+```julia
+julia> resnet = ResNet(); # from Metalhead.jl or could be any model we wish to train
+
+julia> using Zygote
+
+julia> gs, _ = gradient(resnet, rand(Float32, 224, 224, 3, 1)) do m, x
+         sum(m(x))
+       end;
+```
+
+`gs` is what would be sent in the channels from every worker.
+
+All the input channels are expected to be started at the remote processes with a size 1 so only one gradient may be published at one time. The output channels are similar with the channel being started on the process where the sync in expected to happen.
+
+Typical configuration would look like:
+
+```julia
+input_channels = (RemoteChannel(() -> Channel(1), p) for p in workers())
+output_channels = (RemoteChannel(() -> Channel(1), 1) for p in workers())
+```
+
+Set `verbose = true` to get more detailed information as the synchronisation happens.
+"""
 function syncgrads(ip, op; verbose = false)
   CUDA.allowscalar(false)
   @info "Starting Syncing workers!"
@@ -53,6 +83,8 @@ end
 getgrads(loss, dt, m::Chain, args...; workers = workers(), kwargs...) =
   getgrads(loss, dt, [m for _ in workers], args...; workers, kwargs...)
 
+maybetuple(x) = (x,)
+maybetuple(x::Tuple) = x
 
 loss(x, y) = -sum(y .* Flux.logsoftmax(x) ) ./ Float32(size(y,2))
 function getgrads(loss, data_tree,
@@ -78,7 +110,7 @@ function getgrads(loss, data_tree,
       # CUDA.allowscalar(false)
       CUDA.math_mode!(CUDA.DEFAULT_MATH)
 
-      open(BlobTree, DataSets.dataset("imagenet_cyclops")) do dt
+      open(BlobTree, DataSets.dataset("imagenet")) do dt
         gm = gpu(m)
 
         if isnothing(val)
@@ -101,17 +133,13 @@ function getgrads(loss, data_tree,
           if n % 5 == 0
             @info "Cycle: $(n)"
           end
-          sampled_paths = @views key[rand(1:end, nsamples), :]
-          files = sampled_paths.ImageId
-          ds = ImageNetDataset(sampled_paths,
-                               files,
-                               unique(key.class_idx),
-                               sz)
-          dl = DataLoaders.DataLoader(ds, nsamples, collate = true) 
-          for (i,d) in enumerate(CuIterator(dl))
+          data = minibatch(dt, key; nsamples = nsamples, class_idx = class_idx)
+          dl = Flux.Data.DataLoader(gpu, data, batchsize = batchsize)
+          for (i,d) in enumerate(dl)
             x, y = d
-            dm, _, _ = gradient(gm, x, y) do gm, x, y
-              loss(gm(x), y)
+            y_ = maybetuple(y)
+            dm, _, _ = gradient(gm, x, y_) do gm, x, y
+              loss(gm(x), y...)
             end
 
             verbose && @info "Worker $(p) got grads"
@@ -144,6 +172,48 @@ function getgrads(loss, data_tree,
   end
 end
 
+"""
+    start(loss, data_tree, key, model,
+          input_channels, output_channels;
+          class_idx,
+          verbose = false,
+          opt_args = (),
+          opt = Optimisers.ADAM(),
+          kwargs...)
+
+The high level function that performs training of the model over the specified data and configuration.
+
+* `loss`: Typical loss function used to optimise the model with the data. It is fed all the data that every iteration of a `DataLaader` produces, such that the first element of the produced data is first send to the model. The calling signature of the loss looks like:
+
+    x, y, z... = iterate(dataloader)
+    loss(model(x), y, z...)
+
+* `data_tree`: the data tree that one would associate with a dataset described by `DataSets.dataset`.
+
+* `key`: the key  to the training data. Typically the LOC_train__solutions.csv` for the case of ILSVRC.
+
+* `model`: model to be trained
+
+* input_channels, output_channels: See [`syncgrad`](@ref) for details
+
+Keyword Arguments:
+
+This is a non-exhaustive list of keyword arguments currently supported.
+
+* class_idx: a list of the labels to be trained on, a Vector, or Base.OneTo
+* o: The type of optimiser to use. Optimisers.jl provides a number of supported optimisers.
+* opt_args: A tuple containing arguments to the optimiser as described by `o`
+* opt: The output of `o(opt_args...)`. Useful to provide initial optimisers. Can also be associated with schedulers and decays as required.
+* cycles: the number of times the dataset is sampled in a single call to `start`.
+* batchsize: the number of observations per batch per GPU.
+* nsamples: The number of datapoints to be sampled at once. This subset of data is loaded by every process independently and creates a `DataLoader` from it.
+* sts: A vector of length `nworkers()` which each contain the current state of the optimiser. This is initialised as `[Optimisers.state(opt, model) for _ in workers()]`
+* saveweights: Defaults to `false`, set to `true` to save training checkpoints
+* vals: A vector of validation sets to be used as validation sets while training. These also add logging statements while training. Disable with (and defaults to) `[nothing for _ in workers()]`. 
+* workers: A list of processes used to train the model
+* devices: A `DeviceSet()` or iterable of `Device()`; used to target the GPU used to train.
+* verbose: Defaults to `false`. Set to `true` to enable logging of helpful information while debugging and training.
+"""
 function start(loss, data_tree, key,
 	       resnet = Chain(ResNet().layers[1:end-1], Dense(1000, 200)),
 	       workers = nworkers(),
