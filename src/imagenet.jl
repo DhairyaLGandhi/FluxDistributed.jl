@@ -1,9 +1,6 @@
 using CSV, DataFrames
 using ImageMagick
 using DataSets
-using Images
-using DataLoaders
-import LearnBase: nobs, getobs
 import FileIO
 
 function labels(data_tree, labels_file = path"LOC_synset_mapping.txt")
@@ -28,7 +25,7 @@ end
 
 function fproc(data_tree, dest, path)
   x = open(IO, data_tree[path]) do io
-    Metalhead.preprocess(Images.load(io))
+    Metalhead.preprocess(ImageMagick.load(io))
   end
   dest .= Flux.normalise(dropdims(x, dims = 4))
 end
@@ -53,46 +50,6 @@ function makepaths(imgs, dataset, base = ["ILSVRC", "Data", "CLS-LOC"])
     return DataSets.RelPath([base..., dataset, img * ".JPEG"])
   end
 end
-
-struct ImageNetDataset
-  key::DataFrame
-  files::Vector{String}
-  all_labels::Vector
-  size::Tuple
-end
-
-nobs(ds::ImageNetDataset) = length(ds.files)
-function getobs(ds::ImageNetDataset, idx::Int)
-  img = Images.load(ds.files[idx])
-  pre = dropdims(Metalhead.preprocess(img), dims = 4)
-  # Unless the data set is given information such as
-  # size of arrays, all the available labels, etc
-  # 
-  this_label = key[idx, :].class_idx
-  ys = Flux.onehotbatch(this_label, ds.all_labels)
-  Flux.normalise(pre), ys
-end
-
-function getobs(ds::ImageNetDataset, idx::AbstractVector)
-  # Need to know size of images to preallocate
-  # wouldn't work with large variable size images
-  # as in satellite images -- needed for deeplab
-  arr = zeros(Float32, ds.size..., length(idx))
-  for i in idx
-    # can't use the getobs(::ImageNetDataset, ::Int)
-    # method because need to get rid of labels
-    # so repeat code
-    # maybe possible with generating inputs and labels
-    # in separate functions (not only getobs, but a getlabels)
-    img = Images.load(ds.files[idx])
-    pre = dropdims(Metalhead.preprocess(img), dims = 4)
-    arr[:,:,:,i] = Flux.normalise(pre)
-  end
-  batch_labels = @views ds.key[idx, :].class_idx
-  ys = Flux.onehotbatch(batch_labels, ds.all_labels)
-  arr, ys
-end
-
 
 function train_solutions(data_tree, train_sol_file = path"LOC_train_solution.csv", classes = 1:200)
   df = open(IO, data_tree[train_sol_file]) do io

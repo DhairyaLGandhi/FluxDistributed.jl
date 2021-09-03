@@ -97,7 +97,6 @@ function getgrads(loss, data_tree,
 		  opt = Optimisers.ADAM(),
 		  class_idx,
 		  cycles = 1,
-                  sz = (224, 224, 3),
                   saveweights = false,
 		  sts = [nothing for _ in ms],
 		  vals = [nothing for _ in ms],)
