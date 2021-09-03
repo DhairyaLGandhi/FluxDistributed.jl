@@ -38,16 +38,16 @@ function minibatch(data_tree, img_idxs, img_classes;
   ## For some reason @sync -- @async created a deadlock.
   ## The run had to be stopped after 1hr and nothing seemed to be happening.
   for (i,p) in enumerate(ps)
-    fproc(data_tree, @view(arr[:,:,:,i]), p) #, dataset)
+    fproc(data_tree, @view(arr[:,:,:,i]), p)
   end
   arr, Flux.onehotbatch(img_classes, class_idx)
 end
 
-function makepaths(imgs, dataset)
+function makepaths(imgs, dataset, base = ["ILSVRC", "Data", "CLS-LOC"])
   if dataset == "train"
-    return DataSets.RelPath(["ILSVRC", "Data", "CLS-LOC", dataset, first(split(imgs, "_", limit = 2)), imgs * ".JPEG"])
+    return DataSets.RelPath([base..., dataset, first(split(imgs, "_", limit = 2)), imgs * ".JPEG"])
   elseif dataset == "val"
-    return DataSets.RelPath(["ILSVRC", "Data", "CLS-LOC", dataset, img * ".JPEG"])
+    return DataSets.RelPath([base..., dataset, img * ".JPEG"])
   end
 end
 
