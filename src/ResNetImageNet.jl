@@ -9,7 +9,8 @@ using Functors, Optimisers
 
 export minibatch, train_solutions, syncgrads
 
-include("test.jl")
+# include("test.jl")
+inlcude("utils.jl")
 include("overloads.jl")
 include("imagenet.jl")
 include("sync.jl")
