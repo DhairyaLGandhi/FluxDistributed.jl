@@ -7,7 +7,7 @@ makedocs(modules = [ResNetImageNet],
          sitename = "Data Parallel Training",
          pages = ["Home" => "index.md",
                   "Training" => "training.md",
-                  "Datasets" => "datasets.md"]
+                  "Datasets" => "datasets.md"],
          format = Documenter.HTML(
              analytics = "UA-36890222-9",
              assets = ["assets/flux.css"],
