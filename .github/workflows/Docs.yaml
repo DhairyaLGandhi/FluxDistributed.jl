@@ -3,10 +3,10 @@ name: Docs
 on:
   pull_request:
     branches:
-      - master
+      - main
   push:
     branches:
-      - master
+      - main
     tags: '*'
 
 jobs:
@@ -23,14 +23,6 @@ jobs:
             using Pkg
             Pkg.develop(PackageSpec(path=pwd()))
             Pkg.instantiate()'
-      - run: |
-          julia --project=docs/ -e '
-            using ResNetImageNet
-            # using Pkg; Pkg.activate("docs")
-            using Documenter
-            using Documenter: doctest
-            DocMeta.setdocmeta!(ResNetImageNet, :DocTestSetup, :(using ResNetImageNet); recursive=true)
-            doctest(ResNetImageNet)'
       - run: julia --project=docs docs/make.jl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
