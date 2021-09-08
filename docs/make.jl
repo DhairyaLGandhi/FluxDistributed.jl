@@ -16,4 +16,5 @@ makedocs(modules = [ResNetImageNet],
 
 deploydocs(repo = "github.com/DhairyaLGandhi/ResNetImageNet.jl.git",
            target = "build",
+           devbranch = "main",
            push_preview = true)
