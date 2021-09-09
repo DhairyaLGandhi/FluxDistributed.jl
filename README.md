@@ -1,6 +1,6 @@
 # Data Parallel Training for Flux.jl
 
-[![Docs](https://github.com/DhairyaLGandhi/ResNetImageNet.jl/actions/workflows/Docs.yaml/badge.svg)](https://github.com/DhairyaLGandhi/ResNetImageNet.jl/actions/workflows/Docs.yaml)
+[![Docs](https://img.shields.io/badge/Docs-dev-blue)](https://dhairyalgandhi.github.io/ResNetImageNet.jl/dev)
 
 Modern large scale deep learning models have increased in size and number of parameters substaintially. This aims to provide tools and mechanisms to scale training of Flux.jl models over multiple GPUs. 
 
