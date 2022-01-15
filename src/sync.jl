@@ -80,7 +80,7 @@ function syncgrads(ip, op; verbose = false)
 
 end
 
-getgrads(loss, dt, m::Chain, args...; workers = workers(), kwargs...) =
+getgrads(loss, dt, m, args...; workers = workers(), kwargs...) =
   getgrads(loss, dt, [m for _ in workers], args...; workers, kwargs...)
 
 maybetuple(x) = (x,)
@@ -88,7 +88,7 @@ maybetuple(x::Tuple) = x
 
 loss(x, y) = -sum(y .* Flux.logsoftmax(x) ) ./ Float32(size(y,2))
 function getgrads(loss, data_tree,
-		  ms::Vector{<:Chain}, key, rc, opc;
+		  ms::Vector, key, rc, opc;
 		  workers = workers(),
 		  devices = devices(),
 		  verbose = false,
