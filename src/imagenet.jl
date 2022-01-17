@@ -2,6 +2,7 @@ using CSV, DataFrames
 using ImageMagick
 using DataSets
 import FileIO
+using .Threads
 
 function labels(data_tree, labels_file = path"LOC_synset_mapping.txt")
   lines = open(IO, data_tree[labels_file]) do io 
@@ -37,8 +38,8 @@ function minibatch(data_tree, img_idxs, img_classes;
 
   ## For some reason @sync -- @async created a deadlock.
   ## The run had to be stopped after 1hr and nothing seemed to be happening.
-  for (i,p) in enumerate(ps)
-    fproc(data_tree, @view(arr[:,:,:,i]), p)
+  @sync for (i,p) in enumerate(ps)
+    Threads.@spawn fproc(data_tree, @view(arr[:,:,:,i]), p)
   end
   arr, Flux.onehotbatch(img_classes, class_idx)
 end
