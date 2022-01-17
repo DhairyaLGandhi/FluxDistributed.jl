@@ -27,7 +27,7 @@ julia> synct = @async syncgrads(rcs, updated_grads_channel)
 [ Info: Starting Syncing workers!
 Task (runnable) @0x00007ffac5b65120
 
-julia> resnet = ResNet().layers[1:end-1];
+julia> resnet = ResNet();
 
 julia> run_distributed(key, resnet, ResNetImageNet.loss,
                        rcs, updated_grads_channel)
