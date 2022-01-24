@@ -14,5 +14,6 @@ include("utils.jl")
 include("overloads.jl")
 include("imagenet.jl")
 include("sync.jl")
+include("ddp_tasks.jl")
 
 end # module
