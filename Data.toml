@@ -1,0 +1,26 @@
+# Version of the data TOML format.
+data_config_version=0
+
+[[datasets]]
+name="imagenet_cyclops"
+description="ImageNet: A standard large scale images dataset"
+uuid="e7fd7080-e346-4a68-9ca9-98593a99266a"
+
+    [datasets.storage]
+    driver="FileSystem"
+    type="BlobTree"
+    path="/home/dhairyalgandhi/imagenet"
+
+[[datasets]]
+description="The ImageNet computer vision dataset"
+name="imagenet"
+uuid="0a8013ab-509c-44ea-9f28-e217daad0a3a"
+
+    [datasets.storage]
+    driver="JuliaHubDataRepo"
+    bucket_region="us-east-1"
+    bucket="jc-datasets"
+    prefix="imagenet"
+    aws_profile="jc_datasets_access"
+    version="v1"
+    type="BlobTree"
