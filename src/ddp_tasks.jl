@@ -67,3 +67,31 @@ function train_ddp(loss, ds)
   end
   wait.(res)
 end
+
+function train(loss, m, dl, opt, dev, (ip, op))
+  # STEP 1: Take data from dataloader: this data is on `dev`
+  for (x,y) in dl
+    # STEP 2: Take gradient on the appropriate dev: use model on `dev`; get grads on `dev`
+    gm, = CUDA.device!(dev) do
+       gradient(m) do m
+         loss(m(x), y)
+       end
+    end
+
+    # STEP 3: Copy gradients into a buffer on a GPU meant to reduce grads
+    # `ip` is a buffer associated with this `dev`; n devices = n buffers
+    gm = Functors.fmap(ip, gm) do x, y
+      copyto!(x, y)
+      y
+    end
+
+    # STEP 4: `op` holds the reduced grads from every device, copy them back into this `dev`
+    # This happens since `x` is on this `dev` and CUDA does appropriate DtoD
+    gmnew = Functors.fmap(gm, op) do x, y
+      copyto!(x, y)
+    end
+
+    # STEP 5: Optimise. `m`, `gmnew` and `state` are all on `dev` and should return new `m`
+    m, state = opt(m, gmnew, state)
+  end
+end
