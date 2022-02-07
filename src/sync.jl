@@ -148,9 +148,7 @@ function getgrads(loss, data_tree,
             gnew = gpu(take!(op))
             verbose && @info "Worker $(p) got new grads"
 
-            CUDA.@allowscalar begin
-              gm, st = gpu.(opt(cpu(gm), cpu(gnew), cpu(st)))
-            end
+            gm, st = opt(gm, gnew, st)
             if i % 10 == 0
               @info "Worker $(p) at $(i) with loss: $(loss(gm(gval[1]), gval[2]))"
             end
