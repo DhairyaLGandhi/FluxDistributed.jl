@@ -140,6 +140,7 @@ _copyto!(::Nothing, ::Nothing) = nothing
 _copyto!(x::Base.RefValue, y::Base.RefValue) = Ref(_copyto!(x[], yp[]))
 _copyto!(x, y) = copyto!(x, y)
 _copyto!(x, ::Nothing) = nothing
+_copyto!(::Nothing, x) = nothing
 
 function markbuffer!(dest, src, dev)
   while true
@@ -154,12 +155,9 @@ function markbuffer!(dest, src, dev)
   mark!(MARKER, dev, readable)
 end
 
-function check(MARKER, dev, writable)
-  # Threads.atomic_cas!(MARKER[dev], writable, false)
+function check(MARKER, dev, status)
+  MARKER[dev][] == status
 end
-
-function canread end
-function canwrite end
 
 """
     mark!(MARKER, dev)
@@ -168,8 +166,8 @@ Mark that dev is changing state in MARKER
 
 MARKER is a Dict with keys as all the devices and the values being 2-tuples of atomic booleans which represent (hot gradient, can be overwritten)
 """
-function mark!(MARKER, dev)
-  
+function mark!(MARKER, dev, status)
+  Threads.atomic_xchg!(MARKER[dev], status)  
 end
 
 function getbuffer!(dest, src, dev)
@@ -178,11 +176,21 @@ function getbuffer!(dest, src, dev)
       break
     end
   end
-  Functors.fmap(src, dest) do x, y
-    _copyto!(y, x)
+  Functors.fmap(dest, src) do x, y
+    _copyto!(x, y)
     x
   end
   mark!(MARKER, dev, writable)
+end
+
+const writable = true
+const readable = false
+const MARKER = Dict(dev => Threads.Atomic{Bool}(writable) for dev in CUDA.devices())
+
+function reset!(MARKER)
+  for k in keys(MARKER)
+    mark!(MARKER, k, writable)
+  end
 end
 
 # implementation of the `train` function from above
@@ -190,6 +198,7 @@ end
 # intended to be moved to the train method as pieces finish
 function train(setup, buffer, HOST = CUDA.CuDevice(0))
   ts = []
+  reset!(MARKER)
   for (dev,(m,dl)) in pairs(setup)
     t = Threads.@spawn begin
       for (x,y) in dl # STEP 1
