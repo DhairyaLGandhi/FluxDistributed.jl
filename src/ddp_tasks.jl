@@ -26,12 +26,22 @@ _zero(x::AbstractArray) = zero(x)
 _zero(x::Base.RefValue) = Ref(_zero(x[]))
 _zero(x) = x
 
-function destruct(o::T) where T
+
+maybeT(x::NamedTuple) = x
+maybeT(x) = (x,)
+
+mywalk(f, x::T) where T = begin
   fs = fieldnames(T)
-  z = Functors.fmapstructure(o) do x
+  if fs isa NTuple{N,Int} where N
+    return map(f, Functors.children(x))
+  end
+  NamedTuple{fs}(maybeT(map(f, Functors.children(x))))
+end
+
+function destruct(o::T) where T
+  Functors.fmapstructure(o, walk = mywalk) do x
     _zero(x)
   end
-  NamedTuple{fs}(tuple(z))
 end
 
 function prepare_training(resnet, key, devices, nsamples; HOST = CUDA.CuDevice(0))
@@ -129,17 +139,19 @@ end
 _copyto!(::Nothing, ::Nothing) = nothing
 _copyto!(x::Base.RefValue, y::Base.RefValue) = Ref(_copyto!(x[], yp[]))
 _copyto!(x, y) = copyto!(x, y)
+_copyto!(x, ::Nothing) = nothing
 
 function markbuffer!(dest, src, dev)
   while true
-    if buffer_is_writable()
-      mark!(MARKER, dev)
-      Functors.fmap(dest, src) do x, y
-        _copyto!(x, y)
-      end
+    if check(MARKER, dev, writable)
       break
     end
   end
+  Functors.fmap(src, dest) do x, y
+    _copyto!(y, x)
+    x
+  end
+  mark!(MARKER, dev, readable)
 end
 
 function check(MARKER, dev, writable)
@@ -160,12 +172,17 @@ function mark!(MARKER, dev)
   
 end
 
-function getbuffer!(dest, buffer, dev)
-  check(MARKER, dev, true)
-  Functors.fmap(dest, buffer[dev]) do x, y
-    _copyto!(x, y)
+function getbuffer!(dest, src, dev)
+  while true
+    if check(MARKER, dev, readable)
+      break
+    end
   end
-  mark!(MARKER, dev)
+  Functors.fmap(src, dest) do x, y
+    _copyto!(y, x)
+    x
+  end
+  mark!(MARKER, dev, writable)
 end
 
 # implementation of the `train` function from above
@@ -173,17 +190,17 @@ end
 # intended to be moved to the train method as pieces finish
 function train(setup, buffer, HOST = CUDA.CuDevice(0))
   ts = []
-  for (dev,(m,v)) in pairs(setup)
+  for (dev,(m,dl)) in pairs(setup)
     t = Threads.@spawn begin
-      for (x,y) in v # STEP 1
+      for (x,y) in dl # STEP 1
     
-        gm, = CUDA.device!(k) do # STEP 2
+        gm, = CUDA.device!(dev) do # STEP 2
           gradient(m -> ResNetImageNet.loss(m(x), y), m)
         end
-        markbuffer!(buffer[k], gm, dev) # STEP 3
-        getbuffer!(gm, dev) # STEP 4
+        markbuffer!(buffer[dev], gm, dev) # STEP 3
+        getbuffer!(gm, buffer[dev], dev) # STEP 4
         m, st = opt(m, gm, st) # STEP 5
-        @info "results:" dev=k nt=isa(gs, NamedTuple) s=sum(m(x)) t=(typeof(x), typeof(y)) host=HOST
+        @info "results:" dev=dev nt=isa(gs, NamedTuple) s=sum(m(x)) t=(typeof(x), typeof(y)) host=HOST
       end
     end
     push!(ts, t)
