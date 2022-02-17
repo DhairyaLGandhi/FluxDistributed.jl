@@ -127,6 +127,8 @@ function log_loss_and_acc(loss, (dev, model), val; k = (1,5,10))
   end
 end
 
+loss(x, y) = -sum(y .* Flux.logsoftmax(x) ) ./ Float32(size(y,2))
+
 function train(loss, nt, buffer, opt; val = nothing)
   dls = nt.dls
   ds_and_ms = nt.ds_and_ms
