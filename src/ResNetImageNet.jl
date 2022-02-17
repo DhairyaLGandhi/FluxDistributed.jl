@@ -8,6 +8,7 @@ using Dates, DataSets
 using Functors, Optimisers
 
 export minibatch, train_solutions, syncgrads
+export prepare_training
 
 # include("test.jl")
 include("utils.jl")
