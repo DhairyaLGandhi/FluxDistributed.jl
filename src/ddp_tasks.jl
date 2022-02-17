@@ -1,38 +1,5 @@
-# using ResNetImageNet, Flux, Flux.CUDA, BSON, Flux.Zygote, Metalhead, Functors, Serialization, Statistics, Random
-# using DataFrames, CSV, Dates, DataSets
-
 using Serialization, Statistics, Random
 using .Threads
-
-# t = map(0:1) do i
-#   (500, CUDA.CuDevice(i))
-# end
-# 
-# dl = Flux.Data.DataLoader((t,))
-
-function sth(model, key, devices, nsamples)
-  t = map(devices, nsamples) do dev, n
-    (dev, n)
-  end |> x -> (x...,)
-
-  @show t
-  dl = Flux.Data.DataLoader((t,)) do (dev, n)
-    @show n, dev
-    Threads.@spawn begin
-      data = minibatch(nothing, key,
-                       nsamples = n,
-                       class_idx = 1:1000)
-      dl2 = Flux.Data.DataLoader(data,
-                                 batchsize = 48) do x
-        CUDA.device!(dev) do
-          @show CUDA.device()
-          gpu(x)
-        end
-      end
-    end
-  end
-end
-
 
 _zero(x::AbstractArray) = zero(x)
 _zero(x::Base.RefValue) = Ref(_zero(x[]))
@@ -57,38 +24,6 @@ function destruct(o::T) where T
     _zero(x)
   end
 end
-
-function train(loss, dev, m, dl)
-  CUDA.device!(dev) do
-    @info "going to forward" CUDA.device()
-    for d in dl
-      x, y = d
-      # gradient(m) do m
-      #   loss(m(x), y)
-      # end
-      # @info "going to forward" CUDA.device() typeof(d)
-      # @show loss(m(x), y)
-      @show size(x), size(y)
-    end
-  end
-end
-
-function train_ddp(loss, ds)
-  res = []
-  for (dev, (m, d)) in pairs(ds)
-    t = Threads.@spawn begin
-      # CUDA.device!(dev) do
-      #   @show CUDA.device()
-        train(loss, dev, m, d)
-      # end
-    end
-    push!(res, t)
-  end
-  @show "ended stuff"
-  wait.(res)
-end
-
-
 
 function train(loss, m, dl, opt, dev, (ip, op))
   # STEP 1: Take data from dataloader: this data is on `dev`
@@ -142,7 +77,7 @@ function getbuffer!(dest, src, dev)
   end
 end
 
-function step(loss, buffer, dev, m, x, y)
+function train_step(loss, buffer, dev, m, x, y)
   gs, = CUDA.device!(dev) do
     gradient(m -> loss(m(x), y), m)
   end
@@ -151,7 +86,6 @@ function step(loss, buffer, dev, m, x, y)
 end
 
 function sync_buffer(buffer)
-  # vals = map(first, values(buffer))
   vals = collect(values(buffer))
   final = reduce(vals[2:end], init = vals[1]) do x,y
     Functors.fmap(x, y) do x, y
@@ -205,7 +139,7 @@ function train(loss, nt, buffer, opt; val = nothing)
     end
     t = Threads.@spawn begin
       t_ = map(ds_and_ms, mbs) do (dev, m), bs
-        gs = Threads.@spawn step(loss, buffer, dev, m, bs...)
+        gs = Threads.@spawn train_step(loss, buffer, dev, m, bs...)
       end
     end
     gs = fetch(t)
@@ -220,7 +154,7 @@ function train(loss, nt, buffer, opt; val = nothing)
         dev, m = dnm
 
         t_ = Threads.@spawn begin
-          g!(fetch(g), final, dev)
+          getbuffer!(fetch(g), final, dev)
         end
 
         t_opt = Threads.@spawn begin
@@ -267,21 +201,17 @@ function prepare_training(resnet, key, devices, opt, nsamples;
   devs_and_ms = []
   sts = Dict()
   for (k,dev) in zip(ks, devices)
-    # Threads.@spawn begin
-      CUDA.device!(dev) do
-        # @show CUDA.device()
-        push!(devs_and_ms, (dev, gpu(resnet)))
-        # devs_and_ms[dev] = gpu(resnet), gpu(st)
-        sts[dev] = gpu(st)
-        dl = Flux.Data.DataLoader((ns,), buffersize = buffersize) do x
-          shard = minibatch(nothing, k, nsamples = x, class_idx = classes)
-          CUDA.device!(dev) do
-            gpu(shard)
-          end
+    CUDA.device!(dev) do
+      push!(devs_and_ms, (dev, gpu(resnet)))
+      sts[dev] = gpu(st)
+      dl = Flux.Data.DataLoader((ns,), buffersize = buffersize) do x
+        shard = minibatch(nothing, k, nsamples = x, class_idx = classes)
+        CUDA.device!(dev) do
+          gpu(shard)
         end
-	push!(dls, dl)
       end
-    # end
+      push!(dls, dl)
+    end
   end
   (ds_and_ms = devs_and_ms, dls = dls, sts = sts), buffer
 end
