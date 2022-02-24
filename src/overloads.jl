@@ -1,28 +1,28 @@
-# function Optimisers.update(o, x::T, x̄, state) where T
-#   if x̄ === nothing
-#     return x, state
-#   elseif Functors.isleaf(x)
-#     return Optimisers._update(o, x, x̄, state)
-#   else
-#     x̄, _  = _functor(typeof(x), x̄)
-#     x, restructure = _functor(typeof(x), x)
-#     xstate = map((x, x̄, state) -> Optimisers.update(o, x, x̄, state), x, x̄, state)
-#     return restructure(map(first, xstate)), map(x -> x[2], xstate)
-#   end
-# end
-
-function Optimisers.update(o, state, x::T, x̄) where T
+function Optimisers.update(o, x::T, x̄, state) where T
   if x̄ === nothing
-    return state, x
+    return x, state
   elseif Functors.isleaf(x)
-    return Optimisers._update(o, state, x, x̄)
+    return Optimisers._update(o, x, x̄, state)
   else
     x̄, _  = _functor(typeof(x), x̄)
     x, restructure = _functor(typeof(x), x)
-    xstate = map((state, x, x̄) -> Optimisers.update(o, state, x, x̄), state, x, x̄)
-    return map(first, xstate), restructure(map(x -> x[2], xstate))
+    xstate = map((x, x̄, state) -> Optimisers.update(o, x, x̄, state), x, x̄, state)
+    return restructure(map(first, xstate)), map(x -> x[2], xstate)
   end
 end
+
+# function Optimisers.update(o, state, x::T, x̄) where T
+#   if x̄ === nothing
+#     return state, x
+#   elseif Functors.isleaf(x)
+#     return Optimisers._update(o, state, x, x̄)
+#   else
+#     x̄, _  = _functor(typeof(x), x̄)
+#     x, restructure = _functor(typeof(x), x)
+#     xstate = map((state, x, x̄) -> Optimisers.update(o, state, x, x̄), state, x, x̄)
+#     return map(first, xstate), restructure(map(x -> x[2], xstate))
+#   end
+# end
 
 function Optimisers.state(o, x)
   if Functors.isleaf(x)
