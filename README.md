@@ -36,14 +36,14 @@ julia> val = open(BlobTree, DataSets.dataset("ILSVRC")) do data_tree
          ResNetImageNet.train_solutions(data_tree, path"LOC_val_solution.csv", classes)
        end;
 
+julia> opt = Optimisers.Momentum()
+Optimisers.Momentum{Float32}(0.01f0, 0.9f0)
+
 julia> setup, buffer = prepare_training(resnet, key,
                                         CUDA.devices(),
                                         opt, # optimizer
                                         96,  # batchsize per GPU
                                         cycle = 10_000);
-
-julia> opt = Optimisers.Momentum()
-Optimisers.Momentum{Float32}(0.01f0, 0.9f0)
 
 julia> loss = Flux.Losses.logitcrossentropy
 logitcrossentropy (generic function with 1 method)
