@@ -136,35 +136,35 @@ function ensure_synced(buffer, final)
   a[]
 end
 
-log_loss_and_acc(loss, (dev, model), val::Nothing) = nothing
-function log_loss_and_acc(loss, (dev, model), val; k = (1,5,10))
+log_loss_and_acc(loss, (dev, model), val::Nothing, dataset = "val") = nothing
+function log_loss_and_acc(loss, (dev, model), val, dataset = "val"; k = (1,5,10))
   l, fw = CUDA.device!(dev) do
     gval = gpu(val)
     loss(model(gval[1]), gval[2]), cpu(model(gval[1]))
   end
-  println("val_loss: $l")
+  println("$(dataset)_loss: $l")
   acc = map(k -> topkaccuracy(softmax(fw), val[2]; k = k), k)
-  @info "val_$(dev)" loss=l
+  @info "$(dataset)_$(dev)" loss=l # dead=sum(model[end].weight)
   for (j,a) in zip(k, acc)
-    @info "$(j)_$(dev)" acc=a
+    @info "$(dataset)_$(j)_$(dev)" acc=a
   end
 end
 
-function log_loss_and_acc(loss, dnm, val::AbstractDataFrame; kw...)
-  v = minibatch(nothing, val, class_idx = sort(unique(val[!, :class_idx])), nsamples = 300, dataset = "val")
+function log_loss_and_acc(loss, dnm, val::AbstractDataFrame, dataset = "val"; kw...)
+  v = minibatch(nothing, val, class_idx = sort(unique(val[!, :class_idx])), nsamples = 300, dataset = dataset)
   log_loss_and_acc(loss, dnm, v; kw...)
 end
 
-# function log_loss_and_acc(loss, dnm::AbstractVector, val::AbstractDataFrame; kw...)
+# function log_loss_and_acc(loss, dnm::AbstractVector, val::AbstractDataFrame, dataset = "val"; kw...)
 #   for (dev, m) in dnm
-#     v = minibatch(nothing, val, class_idx = sort(unique(val[!, :class_idx])), nsamples = 300, dataset = "train")
-#     log_loss_and_acc(loss, (dev,m), v; kw...)
+#     v = minibatch(nothing, val, class_idx = sort(unique(val[!, :class_idx])), nsamples = 300, dataset = dataset)
+#     log_loss_and_acc(loss, (dev,m), v, dataset; kw...)
 #   end
 # end
 # 
-# function log_loss_and_acc(loss, dnm::AbstractVector, val; kw...)
+# function log_loss_and_acc(loss, dnm::AbstractVector, val, dataset = "val"; kw...)
 #   for (dev, m) in dnm
-#     log_loss_and_acc(loss, (dev,m), val; kw...)
+#     log_loss_and_acc(loss, (dev,m), val, dataset; kw...)
 #   end
 # end
 
@@ -182,7 +182,8 @@ function train(loss, nt, buffer, opt; val = nothing, sched = identity)
       if j % 10 == 0
         println("Cycle: $j")
         if j % 50 == 0
-          log_loss_and_acc(loss, first(ds_and_ms), val)
+          log_loss_and_acc(loss, first(ds_and_ms), val, "val")
+          log_loss_and_acc(loss, first(ds_and_ms), cpu(first(mbs)), "train")
         end
       end
 
@@ -273,21 +274,17 @@ function prepare_training(resnet, key, devices, opt, nsamples;
   devs_and_ms = []
   sts = Dict()
   for (k,dev) in zip(ks, devices)
-    # Threads.@spawn begin
-      CUDA.device!(dev) do
-        # @show CUDA.device()
-        push!(devs_and_ms, (dev, gpu(resnet)))
-        # devs_and_ms[dev] = gpu(resnet), gpu(st)
-        sts[dev] = gpu(st)
-        dl = Flux.Data.DataLoader((ns,), buffersize = buffersize) do x
-          shard = minibatch(nothing, k, nsamples = x, class_idx = classes)
-          CUDA.device!(dev) do
-            gpu(shard)
-          end
+    CUDA.device!(dev) do
+      push!(devs_and_ms, (dev, gpu(resnet)))
+      sts[dev] = gpu(st)
+      dl = Flux.Data.DataLoader((ns,), buffersize = buffersize) do x
+        shard = minibatch(nothing, k, nsamples = x, class_idx = classes)
+        CUDA.device!(dev) do
+          gpu(shard)
         end
-	push!(dls, dl)
       end
-    # end
+      push!(dls, dl)
+    end
   end
   (ds_and_ms = devs_and_ms, dls = dls, sts = sts), buffer
 end
