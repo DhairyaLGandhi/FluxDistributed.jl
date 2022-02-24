@@ -26,20 +26,20 @@ julia> using ResNetImageNet, Flux, Metalhead, DataSets
 julia> classes = 1:1000
 1:1000
 
-julia> resnet = ResNet(34);
+julia> model = ResNet(34);
 
-julia> key = open(BlobTree, DataSets.dataset("ILSVRC")) do data_tree
+julia> key = open(BlobTree, DataSets.dataset("imagenet")) do data_tree
          ResNetImageNet.train_solutions(data_tree, path"LOC_train_solution.csv", classes)
        end;
 
-julia> val = open(BlobTree, DataSets.dataset("ILSVRC")) do data_tree
+julia> val = open(BlobTree, DataSets.dataset("imagenet")) do data_tree
          ResNetImageNet.train_solutions(data_tree, path"LOC_val_solution.csv", classes)
        end;
 
 julia> opt = Optimisers.Momentum()
 Optimisers.Momentum{Float32}(0.01f0, 0.9f0)
 
-julia> setup, buffer = prepare_training(resnet, key,
+julia> setup, buffer = prepare_training(model, key,
                                         CUDA.devices(),
                                         opt, # optimizer
                                         96,  # batchsize per GPU
@@ -48,13 +48,12 @@ julia> setup, buffer = prepare_training(resnet, key,
 julia> loss = Flux.Losses.logitcrossentropy
 logitcrossentropy (generic function with 1 method)
 
-julia> ResNetImageNet.train(loss,
-                            nt, buffer, opt,
+julia> ResNetImageNet.train(loss, setup, buffer, opt,
                             val = val,
                             sched = identity);
 ```
 
-Here `resnet` describes the model to train, `key` describes a table of data and how it may be accessed. For the purposes of the demo, this is taken from the `LOC_train_solution.csv` published by ImageNet alongside the images. Look at `train_solutions` which would allow access to the training validation and test sets.
+Here `model` describes the model to train, `key` describes a table of data and how it may be accessed. For the purposes of the demo, this is taken from the `LOC_train_solution.csv` published by ImageNet alongside the images. Look at `train_solutions` which would allow access to the training validation and test sets.
 
 `loss` is a typical loss function used to train a large neural network. The current system is set up for supervised learning, with support for semi supervised learning coming soon. More information can be found in the documentation.
 
