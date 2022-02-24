@@ -25,6 +25,7 @@ function destruct(o::T) where T
   end
 end
 
+loss(x, y) = -sum(y .* Flux.logsoftmax(x) ) ./ Float32(size(y,2))
 function train(loss, m, dl, opt, dev, (ip, op))
   # STEP 1: Take data from dataloader: this data is on `dev`
   for (x,y) in dl
@@ -56,18 +57,17 @@ end
 
 
 _copyto!(::Nothing, ::Nothing) = nothing
-_copyto!(x::Base.RefValue, y::Base.RefValue) = Ref(_copyto!(x[], yp[]))
+_copyto!(x::Base.RefValue, y::Base.RefValue) = Ref(_copyto!(x[], y[]))
 _copyto!(x, y) = copyto!(x, y)
 _copyto!(x, ::Nothing) = nothing
 _copyto!(::Nothing, x) = nothing
 _copyto!(x::Function, y::Function) = nothing # x
-_copyto!(x::T, y::S) where {T <: Real, S <: Real} = convert(T, y)
-_copyto!(x::T, y::T) where T <: Union{MaxPool, AdaptiveMeanPool, Flux.Zeros} = y
 function markbuffer!(dest, src, dev)
   Functors.fmap(src, dest) do x, y
     _copyto!(y, x)
     x
   end
+  CUDA.synchronize()
 end
 
 function getbuffer!(dest, src, dev)
@@ -85,6 +85,13 @@ function train_step(loss, buffer, dev, m, x, y)
   gs
 end
 
+function check_nans(nt::Union{Tuple,NamedTuple})
+  any(check_nans, nt)
+end
+check_nans(x::AbstractArray) = any(isnan, x)
+check_nans(::Nothing) = false
+check_nans(x) = isnan(x)
+
 function sync_buffer(buffer)
   vals = collect(values(buffer))
   final = reduce(vals[2:end], init = vals[1]) do x,y
@@ -94,24 +101,39 @@ function sync_buffer(buffer)
        ResNetImageNet._accum(x,y)
     end
   end
+
   final = Functors.fmap(final) do x
     isnothing(x) && return x
     ResNetImageNet._dodiv(x, Float32(length(vals)))
   end
-  # once you have the final grads - broadcast them (copy them to every entry in buffer)
-  # note that the grads never leave the HOST, move them to every GPU in the optimisation
-  # step
-  get_tasks = Threads.@spawn begin
-    ts = []
-    for (dev,g) in pairs(buffer)
-      get_task = Threads.@spawn getbuffer!(g, final, dev)
-      push!(ts, get_task)
-    end
-    ts
+
+  # Mark into the preallocated buffer
+  # This broadcasts the updated gradients
+  # to all the GPUs 
+  ts = []
+  for (dev,g) in pairs(buffer)
+    markbuffer!(g, final, dev)
   end
-  ft = fetch(get_tasks)
-  wait.(ft)
+  wait.(ts)
   final 
+end
+
+_isapprox(x::AbstractArray, y::AbstractArray) = x ≈ y
+_isapprox(::Nothing, ::Nothing) = true
+# _isapprox(x::Base.RefValue, y::Base.RefValue) = _isapprox(x[], y[])
+# _isapprox(x, y) = true
+function ensure_synced(buffer, final)
+  a = Ref{Bool}(true)
+  for (dev, g) in pairs(buffer)
+    # @show dev
+    Functors.fmap(g, final) do x, y
+      if !_isapprox(x, y)
+        a[] = false
+      end
+      x
+    end
+  end
+  a[]
 end
 
 log_loss_and_acc(loss, (dev, model), val::Nothing) = nothing
@@ -120,58 +142,106 @@ function log_loss_and_acc(loss, (dev, model), val; k = (1,5,10))
     gval = gpu(val)
     loss(model(gval[1]), gval[2]), cpu(model(gval[1]))
   end
-  acc = map(k -> topkaccuracy(fw, val[2]; k = k), k)
-  @info "val_loss" loss=l
+  println("val_loss: $l")
+  acc = map(k -> topkaccuracy(softmax(fw), val[2]; k = k), k)
+  @info "val_$(dev)" loss=l
   for (j,a) in zip(k, acc)
-    @info "acc_$j" acc=a
+    @info "$(j)_$(dev)" acc=a
   end
 end
 
-loss(x, y) = -sum(y .* Flux.logsoftmax(x) ) ./ Float32(size(y,2))
+function log_loss_and_acc(loss, dnm, val::AbstractDataFrame; kw...)
+  v = minibatch(nothing, val, class_idx = sort(unique(val[!, :class_idx])), nsamples = 300, dataset = "val")
+  log_loss_and_acc(loss, dnm, v; kw...)
+end
 
-function train(loss, nt, buffer, opt; val = nothing)
+# function log_loss_and_acc(loss, dnm::AbstractVector, val::AbstractDataFrame; kw...)
+#   for (dev, m) in dnm
+#     v = minibatch(nothing, val, class_idx = sort(unique(val[!, :class_idx])), nsamples = 300, dataset = "train")
+#     log_loss_and_acc(loss, (dev,m), v; kw...)
+#   end
+# end
+# 
+# function log_loss_and_acc(loss, dnm::AbstractVector, val; kw...)
+#   for (dev, m) in dnm
+#     log_loss_and_acc(loss, (dev,m), val; kw...)
+#   end
+# end
+
+function train(loss, nt, buffer, opt; val = nothing, sched = identity)
   dls = nt.dls
   ds_and_ms = nt.ds_and_ms
   sts = nt.sts
   big_batches = zip(dls...)
-  for (j,mbs) in enumerate(big_batches)
-    if j % 10 == 0
-      println("Cycle: $j")
-      log_loss_and_acc(loss, first(ds_and_ms), val)
-    end
-    t = Threads.@spawn begin
-      t_ = map(ds_and_ms, mbs) do (dev, m), bs
+  num_missed = 0
+
+  # Step 1: get the minibatches from every dataloader
+  # Make sure not to use these without a `device!` block
+  for (j, mbs) in enumerate(big_batches)
+    try
+      if j % 10 == 0
+        println("Cycle: $j")
+        if j % 50 == 0
+          log_loss_and_acc(loss, first(ds_and_ms), val)
+        end
+      end
+
+      # if j > 2000 && j % 1200 == 0
+      #   opt = sched(opt)
+      #   Wandb.update_config!(lg, Dict("eta" => opt.eta), allow_val_change = true)
+      # end
+
+      # Step 2: Get the grads on every GPU
+      # `train_step` returns the grads allocated on every
+      # dev. fetch(g) should return the memory on the GPU
+      # reuse this memory in Step 4.
+      ts = []
+      for ((dev,m), bs) in zip(ds_and_ms, mbs)
         gs = Threads.@spawn train_step(loss, buffer, dev, m, bs...)
+        push!(ts, gs)
       end
-    end
-    gs = fetch(t)
-    wait.(gs)
-    final = sync_buffer(buffer)
+      gs = ts
+      wait.(gs)
+      CUDA.synchronize()
 
-    # move final grads to every GPU - fetch(g) has the right
-    # grads for dev in it, overwrite with final
-    # and optimise
-    get_tasks = map(ds_and_ms, gs) do dnm, g
-      t = Threads.@spawn begin
-        dev, m = dnm
+      # Step 3: Sync the buffer gradients
+      final = sync_buffer(buffer)
 
-        t_ = Threads.@spawn begin
-          getbuffer!(fetch(g), final, dev)
-        end
+      # move final grads to every GPU - fetch(g) has the right
+      # grads for dev in it, overwrite with final
+      # and optimise
+      get_tasks = map(ds_and_ms, gs) do dnm, g
+        t = Threads.@spawn begin
+          dev, m = dnm
 
-        t_opt = Threads.@spawn begin
-          m, st = CUDA.device!(dev) do
-            opt(m, fetch(t_), sts[dev])
+          t_opt = Threads.@spawn begin
+            m, st = CUDA.device!(dev) do
+              grad = fetch(g)
+              getbuffer!(grad, final, dev)
+              CUDA.synchronize()
+              m, st = opt(m, grad, sts[dev])
+              CUDA.synchronize()
+              m, st
+            end
+            sts[dev] = st
+            m
           end
-          sts[dev] = st
-          m
+          (dev, fetch(t_opt))
         end
+      end
+      ds_and_ms = fetch.(get_tasks)
 
-        (dev, fetch(t_opt))
+    catch e
+      if e isa TaskFailedException && e.task.exception isa CUDA.OutOfGPUMemoryError
+        println("Found error: $(e.task.exception)")
+        continue
+
+      else
+        rethrow(e)
       end
     end
-    ds_and_ms = fetch.(get_tasks)
   end
+  println("Num Missed: $num_missed")
   map(ds_and_ms) do dnm
     dev, m = dnm
     CUDA.device!(dev) do
@@ -203,17 +273,21 @@ function prepare_training(resnet, key, devices, opt, nsamples;
   devs_and_ms = []
   sts = Dict()
   for (k,dev) in zip(ks, devices)
-    CUDA.device!(dev) do
-      push!(devs_and_ms, (dev, gpu(resnet)))
-      sts[dev] = gpu(st)
-      dl = Flux.Data.DataLoader((ns,), buffersize = buffersize) do x
-        shard = minibatch(nothing, k, nsamples = x, class_idx = classes)
-        CUDA.device!(dev) do
-          gpu(shard)
+    # Threads.@spawn begin
+      CUDA.device!(dev) do
+        # @show CUDA.device()
+        push!(devs_and_ms, (dev, gpu(resnet)))
+        # devs_and_ms[dev] = gpu(resnet), gpu(st)
+        sts[dev] = gpu(st)
+        dl = Flux.Data.DataLoader((ns,), buffersize = buffersize) do x
+          shard = minibatch(nothing, k, nsamples = x, class_idx = classes)
+          CUDA.device!(dev) do
+            gpu(shard)
+          end
         end
+	push!(dls, dl)
       end
-      push!(dls, dl)
-    end
+    # end
   end
   (ds_and_ms = devs_and_ms, dls = dls, sts = sts), buffer
 end
