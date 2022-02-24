@@ -4,13 +4,6 @@ using DataSets
 import FileIO
 using .Threads
 
-const IMAGENET_BASE = "/home/dhairyalgandhi/imagenet"
-const ILSVRC = "ILSVRC"
-const ILSVRC_BASE = joinpath(IMAGENET_BASE, "ILSVRC")
-const TASK = "CLS-LOC"
-const ANNOTATIONS = "Annotations"
-const BASE_PATH = "/home/dhairyalgandhi/imagenet/ILSVRC/Data/CLS-LOC"
-
 function labels(data_tree, labels_file = path"LOC_synset_mapping.txt")
   lines = open(IO, data_tree[labels_file]) do io 
     readlines(io)
@@ -38,14 +31,6 @@ function fproc(data_tree, dest, path)
   dest .= Flux.normalise(dropdims(x, dims = 4))
 end
 
-function fproc(dest::AbstractArray, path, dataset::AbstractString)
-  # try
-  dest .= Flux.normalise(dropdims(Metalhead.preprocess(joinpath(BASE_PATH, dataset, path)), dims = 4))
-  # catch e
-  #   @show e, catch_backtrace()
-  # end
-end
-
 function minibatch(data_tree, img_idxs, img_classes;
                    class_idx = 1:200, dataset = "train")
   arr = zeros(Float32, 224, 224, 3, length(img_idxs))
@@ -53,28 +38,19 @@ function minibatch(data_tree, img_idxs, img_classes;
 
   ## For some reason @sync -- @async created a deadlock.
   ## The run had to be stopped after 1hr and nothing seemed to be happening.
-  @sync for (i,p) in zip(eachslice(arr, dims =4), ps)
-    # fproc(data_tree, @view(arr[:,:,:,i]), p)
-    u = Threads.@spawn fproc(i, p, dataset)
+  @sync for (i,p) in enumerate(ps)
+    Threads.@spawn fproc(data_tree, @view(arr[:,:,:,i]), p)
   end
   arr, Flux.onehotbatch(img_classes, class_idx)
 end
 
-function makepaths(img, dataset)
+function makepaths(imgs, dataset, base = ["ILSVRC", "Data", "CLS-LOC"])
   if dataset == "train"
-    joinpath(first(split(img, "_", limit = 2)), img * ".JPEG")
+    return DataSets.RelPath([base..., dataset, first(split(imgs, "_", limit = 2)), imgs * ".JPEG"])
   elseif dataset == "val"
-    img * ".JPEG"
+    return DataSets.RelPath([base..., dataset, img * ".JPEG"])
   end
 end
-
-# function makepaths(imgs, dataset, base = ["ILSVRC", "Data", "CLS-LOC"])
-#   if dataset == "train"
-#     return DataSets.RelPath([base..., dataset, first(split(imgs, "_", limit = 2)), imgs * ".JPEG"])
-#   elseif dataset == "val"
-#     return DataSets.RelPath([base..., dataset, img * ".JPEG"])
-#   end
-# end
 
 function train_solutions(data_tree, train_sol_file = path"LOC_train_solution.csv", classes = 1:200)
   df = open(IO, data_tree[train_sol_file]) do io
