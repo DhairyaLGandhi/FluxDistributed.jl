@@ -203,7 +203,6 @@ function train(loss, nt, buffer, opt; val = nothing, sched = identity)
       end
       gs = ts
       wait.(gs)
-      CUDA.synchronize()
 
       # Step 3: Sync the buffer gradients
       final = sync_buffer(buffer)
