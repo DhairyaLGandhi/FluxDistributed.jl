@@ -26,34 +26,34 @@ function destruct(o::T) where T
 end
 
 loss(x, y) = -sum(y .* Flux.logsoftmax(x) ) ./ Float32(size(y,2))
-function train(loss, m, dl, opt, dev, (ip, op))
-  # STEP 1: Take data from dataloader: this data is on `dev`
-  for (x,y) in dl
-    # STEP 2: Take gradient on the appropriate dev: use model on `dev`; get grads on `dev`
-    gm, = CUDA.device!(dev) do
-       gradient(m) do m
-         loss(m(x), y)
-       end
-    end
-
-    # STEP 3: Copy gradients into a buffer on a GPU meant to reduce grads
-    # `ip` is a buffer associated with this `dev`; n devices = n buffers
-    gm = Functors.fmap(ip, gm) do x, y
-      copyto!(x, y)
-      y
-    end
-
-    # STEP 4: `op` holds the reduced grads from every device, copy them back into this `dev`
-    # This happens since `x` is on this `dev` and CUDA does appropriate DtoD
-    gmnew = Functors.fmap(gm, op) do x, y
-      copyto!(x, y)
-      x
-    end
-
-    # STEP 5: Optimise. `m`, `gmnew` and `state` are all on `dev` and should return new `m`
-    m, state = opt(m, gmnew, state)
-  end
-end
+# function train(loss, m, dl, opt, dev, (ip, op))
+#   # STEP 1: Take data from dataloader: this data is on `dev`
+#   for (x,y) in dl
+#     # STEP 2: Take gradient on the appropriate dev: use model on `dev`; get grads on `dev`
+#     gm, = CUDA.device!(dev) do
+#        gradient(m) do m
+#          loss(m(x), y)
+#        end
+#     end
+# 
+#     # STEP 3: Copy gradients into a buffer on a GPU meant to reduce grads
+#     # `ip` is a buffer associated with this `dev`; n devices = n buffers
+#     gm = Functors.fmap(ip, gm) do x, y
+#       copyto!(x, y)
+#       y
+#     end
+# 
+#     # STEP 4: `op` holds the reduced grads from every device, copy them back into this `dev`
+#     # This happens since `x` is on this `dev` and CUDA does appropriate DtoD
+#     gmnew = Functors.fmap(gm, op) do x, y
+#       copyto!(x, y)
+#       x
+#     end
+# 
+#     # STEP 5: Optimise. `m`, `gmnew` and `state` are all on `dev` and should return new `m`
+#     m, state = opt(m, gmnew, state)
+#   end
+# end
 
 
 _copyto!(::Nothing, ::Nothing) = nothing
@@ -125,7 +125,6 @@ _isapprox(::Nothing, ::Nothing) = true
 function ensure_synced(buffer, final)
   a = Ref{Bool}(true)
   for (dev, g) in pairs(buffer)
-    # @show dev
     Functors.fmap(g, final) do x, y
       if !_isapprox(x, y)
         a[] = false
@@ -253,10 +252,12 @@ end
 
 function prepare_training(resnet, key, devices, opt, nsamples;
 	                   HOST = CUDA.CuDevice(0),
+                           epochs = nothing,
 			   cycle = 5,
 			   classes = 1:1000,
 			   buffersize = 5)
   ds = Dict()
+  cycle = !isnothing(epochs) ? size(key, 1) * epochs ÷ length(devices) ÷ nsamples : cycle
   ixs = map(shuffle!, collect.(collect(Iterators.partition(1:size(key, 1), size(key, 1) ÷ length(devices)))))[1:length(devices)]
   ks = map(x -> @view(key[x,:]), ixs)
   ns = Iterators.repeated(nsamples, cycle) # ntuple(_ -> nsamples, 5)
