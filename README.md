@@ -43,7 +43,7 @@ julia> setup, buffer = prepare_training(model, key,
                                         CUDA.devices(),
                                         opt, # optimizer
                                         96,  # batchsize per GPU
-                                        cycle = 10_000);
+                                        epochs = 2);
 
 julia> loss = Flux.Losses.logitcrossentropy
 logitcrossentropy (generic function with 1 method)
