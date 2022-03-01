@@ -26,7 +26,7 @@ end
 
 function fproc(data_tree, dest, path)
   x = open(IO, data_tree[path]) do io
-    Metalhead.preprocess(ImageMagick.load(io))
+    preprocess(ImageMagick.load(io))
   end
   dest .= Flux.normalise(dropdims(x, dims = 4))
 end
@@ -48,7 +48,7 @@ function makepaths(imgs, dataset, base = ["ILSVRC", "Data", "CLS-LOC"])
   if dataset == "train"
     return DataSets.RelPath([base..., dataset, first(split(imgs, "_", limit = 2)), imgs * ".JPEG"])
   elseif dataset == "val"
-    return DataSets.RelPath([base..., dataset, img * ".JPEG"])
+    return DataSets.RelPath([base..., dataset, imgs * ".JPEG"])
   end
 end
 
