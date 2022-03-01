@@ -167,6 +167,17 @@ end
 #   end
 # end
 
+function update(opt, (dev,m), g, final, st)
+  m, st = CUDA.device!(dev) do
+    grad = fetch(g)
+    getbuffer!(grad, final, dev)
+    CUDA.synchronize()
+    m, st = opt(m, grad, st)
+    CUDA.synchronize()
+    m, st
+  end
+end
+
 function train(loss, nt, buffer, opt; val = nothing, sched = identity)
   dls = nt.dls
   ds_and_ms = nt.ds_and_ms
@@ -211,17 +222,9 @@ function train(loss, nt, buffer, opt; val = nothing, sched = identity)
       # and optimise
       get_tasks = map(ds_and_ms, gs) do dnm, g
         t = Threads.@spawn begin
-          dev, m = dnm
-
+          # dev, m = dnm
           t_opt = Threads.@spawn begin
-            m, st = CUDA.device!(dev) do
-              grad = fetch(g)
-              getbuffer!(grad, final, dev)
-              CUDA.synchronize()
-              m, st = opt(m, grad, sts[dev])
-              CUDA.synchronize()
-              m, st
-            end
+            m, st = update(opt, dnm, g, final, sts[dev])
             sts[dev] = st
             m
           end
