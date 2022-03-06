@@ -6,7 +6,7 @@ Data parallel training happens over several GPUs which themselves may be spread 
 
 There are several strategies that can be employed for parallel loading of data. Typically, the process involves sharding of data by the number of accelerator units, and creating data loaders which can load data from the disk asynchronously with the training loop. In order to serve all the accelerators, one can call a `DataParallelDataLoader` or create `N` instances of iterable producing mini-batches (where `N` refers to the number of accelerator units).
 
-In this package, the `prepare_training` function uses a modified version of a Flux DataLoader which can simultaneously feed `N` accelerators and load data from disk in parallel with the training. Data is managed through DataSets.jl (it is also useful for setting up any custom dataset, and more information can be found in the [datasets document](../datasets.md).
+In this package, the `prepare_training` function uses a modified version of a Flux DataLoader which can simultaneously feed `N` accelerators, load data and move it to the accelerator in parallel with the training. This way, one can write custom loading and preprocessing scripts to be run in parallel with the training, and evern overlapping network costs to move data to the accelerator without training loop needing to wait for the data to be available to it. Data is managed through DataSets.jl (it is also useful for setting up any custom dataset, and more information can be found in the [datasets document](../datasets.md).
 
 ```@docs
 ResNetImageNet.prepare_training
@@ -63,10 +63,9 @@ end
 
 This looks very similar to the typical supervised learning training loop from Flux.
 
-In fact, it is! With the addition of the synchrnisation part, we can also extend it to several forms of semi-supervised and unsupervised learning scenarios. This is part of the future work of this pacakge, and something actively being researched in the Julia community and elsewhere.
+In fact, it is! With the addition of the synchronization part, we can also extend it to several forms of semi-supervised and unsupervised learning scenarios. This is part of the future work of this pacakge, and something actively being researched in the Julia community and elsewhere.
 
 ```@docs
-ResNetImageNet.prepare_training
 ResNetImageNet.train_step
 ResNetImageNet.update
 ResNetImageNet.train
