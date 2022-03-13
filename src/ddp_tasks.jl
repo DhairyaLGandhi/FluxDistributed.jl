@@ -136,16 +136,18 @@ function ensure_synced(buffer, final)
 end
 
 log_loss_and_acc(loss, (dev, model), val::Nothing, dataset = "val") = nothing
-function log_loss_and_acc(loss, (dev, model), val, dataset = "val"; k = (1,5,10))
+function log_loss_and_acc(loss, (dev, model), val, dataset = "val"; k = (1,5,10), logger = Logging.global_logger())
   l, fw = CUDA.device!(dev) do
     gval = gpu(val)
     loss(model(gval[1]), gval[2]), cpu(model(gval[1]))
   end
   println("$(dataset)_loss: $l")
   acc = map(k -> topkaccuracy(softmax(fw), val[2]; k = k), k)
-  @info "$(dataset)_$(dev)" loss=l # dead=sum(model[end].weight)
-  for (j,a) in zip(k, acc)
-    @info "$(dataset)_$(j)_$(dev)" acc=a
+  Logging.with_logger(logger) do
+    @info "$(dataset)_$(dev)" loss=l # dead=sum(model[end].weight)
+    for (j,a) in zip(k, acc)
+      @info "$(dataset)_$(j)_$(dev)" acc=a
+    end
   end
 end
 
@@ -178,7 +180,7 @@ function update(opt, (dev,m), g, final, st)
   end
 end
 
-function train(loss, nt, buffer, opt; val = nothing, sched = identity)
+function train(loss, nt, buffer, opt; val = nothing, sched = identity, logger = Logging.global_logger())
   dls = nt.dls
   ds_and_ms = nt.ds_and_ms
   sts = nt.sts
@@ -192,8 +194,8 @@ function train(loss, nt, buffer, opt; val = nothing, sched = identity)
       if j % 10 == 0
         println("Cycle: $j")
         if j % 50 == 0
-          log_loss_and_acc(loss, first(ds_and_ms), val, "val")
-          log_loss_and_acc(loss, first(ds_and_ms), cpu(first(mbs)), "train")
+          log_loss_and_acc(loss, first(ds_and_ms), val, "val", logger = logger)
+          log_loss_and_acc(loss, first(ds_and_ms), cpu(first(mbs)), "train", logger = logger)
         end
       end
 
