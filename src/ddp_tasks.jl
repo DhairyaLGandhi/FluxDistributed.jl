@@ -150,7 +150,10 @@ function log_loss_and_acc(loss, (dev, model), val, dataset = "val"; k = (1,5,10)
 end
 
 function log_loss_and_acc(loss, dnm, val::AbstractDataFrame, dataset = "val"; kw...)
-  v = minibatch(nothing, val, class_idx = sort(unique(val[!, :class_idx])), nsamples = 300, dataset = dataset)
+
+  v = open(BlobTree, DataSets.dataset("imagenet_cyclops")) do data_tree
+    minibatch(data_tree, val, class_idx = sort(unique(val[!, :class_idx])), nsamples = 300, dataset = dataset)
+  end
   log_loss_and_acc(loss, dnm, v; kw...)
 end
 
@@ -222,7 +225,7 @@ function train(loss, nt, buffer, opt; val = nothing, sched = identity)
       # and optimise
       get_tasks = map(ds_and_ms, gs) do dnm, g
         t = Threads.@spawn begin
-          # dev, m = dnm
+          dev, m = dnm
           t_opt = Threads.@spawn begin
             m, st = update(opt, dnm, g, final, sts[dev])
             sts[dev] = st
@@ -280,10 +283,12 @@ function prepare_training(resnet, key, devices, opt, nsamples;
     CUDA.device!(dev) do
       push!(devs_and_ms, (dev, gpu(resnet)))
       sts[dev] = gpu(st)
-      dl = Flux.Data.DataLoader((ns,), buffersize = buffersize) do x
-        shard = minibatch(nothing, k, nsamples = x, class_idx = classes)
-        CUDA.device!(dev) do
-          gpu(shard)
+      dl = open(BlobTree, DataSets.dataset("imagenet_cyclops")) do data_tree
+        dl = Flux.Data.DataLoader((ns,), buffersize = buffersize) do x
+          shard = minibatch(data_tree, k, nsamples = x, class_idx = classes)
+          CUDA.device!(dev) do
+            gpu(shard)
+          end
         end
       end
       push!(dls, dl)
