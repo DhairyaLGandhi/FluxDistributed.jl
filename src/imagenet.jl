@@ -27,7 +27,7 @@ end
 function fproc(data_tree, dest, path)
   datasets_path = data_tree[path]
   localpath = joinpath(datatsets_path.root.path, joinpath(datasets_path.path.components...))
-  x = open(newpath) do io
+  x = open(localpath) do io
     preprocess(FileIO.load(FileIO.File{FileIO.format"JPEG"}(io)))
   end
   # x = open(IO, data_tree[path]) do io
