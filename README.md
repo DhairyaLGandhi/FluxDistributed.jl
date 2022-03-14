@@ -18,7 +18,9 @@ Supports both task based and process based parallelism. The former is suited to 
 
 Start Julia with the environment of the package activated. This is currently necessary. Start julia with more threads than available. Finally, set up the environment via `] instantiate`.
 
-Here is an example of a simple task based parallelism training demo.
+There is a `Data.toml` in the repo which has a few example Datasets. The package uses the `"imagenet_cyclops"` data set by default. Make sure to update the path to where in the system the a dataset is available. In the future, this requirement will be lifted in favour of an API to configure this path in code.
+
+Here is an example of a simple task based parallel training demo.
 
 ```julia
 julia> using ResNetImageNet, Flux, Metalhead, DataSets
