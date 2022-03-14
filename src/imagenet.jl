@@ -25,7 +25,12 @@ function minibatch(data_tree, key; nsamples = 16, class_idx, kwargs...)
 end
 
 function fproc(data_tree, dest, path)
-  x = open(data_tree[path]) do io
+  # TODO: this should be using `open(data_tree[path])`
+  # but FileIO.load doesn't close files 
+  datatsets_path = data_tree[path]
+  localpath = joinpath(datatsets_path.root.path, joinpath(datatsets_path.path.components...))
+  x = open(localpath) do io
+  # x = open(data_tree[path]) do io
     preprocess(FileIO.load(FileIO.File{FileIO.format"JPEG"}(io)))
   end
   dest .= Flux.normalise(dropdims(x, dims = 4))
