@@ -15,7 +15,7 @@ export prepare_training
 include("preprocess.jl")
 include("utils.jl")
 include("overloads.jl")
-include("imagenet.jl")
+include("datasets/imagenet.jl")
 # include("sync.jl")
 include("ddp_tasks.jl")
 
