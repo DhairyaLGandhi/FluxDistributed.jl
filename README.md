@@ -64,3 +64,25 @@ Here `model` describes the model to train, `key` describes a table of data and h
 `rcs` and `updated_grads_channel` are `RemoteChannel` between the first process and all the child processes. These are used to send gradients back and forth in order to synchronise them to perform data parallel training.
 
 `syncgrads` starts a task on the main process which continually monitors for gradients coming in from all the available processes and does a manual synchrnisation and sends the updated gradients back to the processes. These gradients are what ultimately trains sent to optimise the model.
+
+### Logging Support
+
+In order to hook into your favourite MLOps backend, it is possible to set up logging with various backends. By default, a trace of the training metrics is printed to console. In order to replace that, it is possible to use Julia's logging infrastructure to set up a different logger.
+
+#### Wandb.jl
+
+[Wandb.jl](https://github.com/avik-pal/Wandb.jl) has unofficial bindings for the wandb.ai platform. 
+
+```julia
+using ResNetImageNet, Flux, Metalhead
+using Wandb, Logging
+
+lg = WandbLogger(project = "DDP",
+                 name = "Resnet-34,
+                 config = Dict(:saveweights => false, :cycles => 100),
+                 step_increment = 1)
+
+with_logger(lg) do
+  ResNetImageNet.train(...)
+end
+```
