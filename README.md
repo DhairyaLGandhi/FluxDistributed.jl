@@ -26,7 +26,7 @@ julia> using ResNetImageNet, Flux, Metalhead, DataSets
 julia> classes = 1:1000
 1:1000
 
-julia> model = ResNet(34);
+julia> model = ResNet34();
 
 julia> key = open(BlobTree, DataSets.dataset("imagenet")) do data_tree
          ResNetImageNet.train_solutions(data_tree, path"LOC_train_solution.csv", classes)
