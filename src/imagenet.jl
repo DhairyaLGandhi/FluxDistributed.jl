@@ -25,14 +25,9 @@ function minibatch(data_tree, key; nsamples = 16, class_idx, kwargs...)
 end
 
 function fproc(data_tree, dest, path)
-  datasets_path = data_tree[path]
-  localpath = joinpath(datatsets_path.root.path, joinpath(datasets_path.path.components...))
-  x = open(localpath) do io
+  x = open(data_tree[path]) do io
     preprocess(FileIO.load(FileIO.File{FileIO.format"JPEG"}(io)))
   end
-  # x = open(IO, data_tree[path]) do io
-  #   preprocess(ImageMagick.load(io))
-  # end
   dest .= Flux.normalise(dropdims(x, dims = 4))
 end
 
