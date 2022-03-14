@@ -150,7 +150,10 @@ function log_loss_and_acc(loss, (dev, model), val, dataset = "val"; k = (1,5,10)
 end
 
 function log_loss_and_acc(loss, dnm, val::AbstractDataFrame, dataset = "val"; kw...)
-  v = minibatch(nothing, val, class_idx = sort(unique(val[!, :class_idx])), nsamples = 300, dataset = dataset)
+
+  v = open(BlobTree, DataSets.dataset("imagenet_cyclops")) do data_tree
+    minibatch(data_tree, val, class_idx = sort(unique(val[!, :class_idx])), nsamples = 300, dataset = dataset)
+  end
   log_loss_and_acc(loss, dnm, v; kw...)
 end
 
