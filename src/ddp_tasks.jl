@@ -212,7 +212,7 @@ function train(loss, nt, buffer, opt; val = nothing, sched = identity)
       ts = []
       for ((dev,m), bs) in zip(ds_and_ms, mbs)
         gs = Threads.@spawn train_step(loss, buffer, dev, m, bs...)
-        push!(ts, gs)
+        push!(ts, Base.errormonitor(gs))
       end
       gs = ts
       wait.(gs)
@@ -231,8 +231,9 @@ function train(loss, nt, buffer, opt; val = nothing, sched = identity)
             sts[dev] = st
             m
           end
-          (dev, fetch(t_opt))
+          (dev, fetch(Base.errormonitor(t_opt)))
         end
+        Base.errormonitor(t)
       end
       ds_and_ms = fetch.(get_tasks)
 
