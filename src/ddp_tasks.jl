@@ -233,8 +233,9 @@ function train(loss, nt, buffer, opt; val = nothing, sched = identity)
           end
           (dev, fetch(Base.errormonitor(t_opt)))
         end
+        Base.errormonitor(t)
       end
-      ds_and_ms = fetch.(Base.errormonitor.(get_tasks))
+      ds_and_ms = fetch.(get_tasks)
 
     catch e
       if e isa TaskFailedException && e.task.exception isa CUDA.OutOfGPUMemoryError
