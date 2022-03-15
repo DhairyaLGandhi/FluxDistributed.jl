@@ -256,7 +256,7 @@ function train(loss, nt, buffer, opt; val = nothing, sched = identity)
 end
 
 function prepare_training(resnet, key, devices, opt, nsamples;
-	                   HOST = CUDA.CuDevice(0),
+	                   HOST = first(devices),
                            epochs = nothing,
 			   cycle = 5,
 			   classes = 1:1000,
