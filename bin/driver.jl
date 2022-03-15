@@ -3,13 +3,13 @@ using Distributed, Dates, DataFrames, DataSets, Optimisers
 addprocs(4, exeflags = ["--project", "-t8"])
 @everywhere include("main.jl")
 
-const key = open(BlobTree, DataSets.dataset("imagenet_cyclops")) do data_tree
+const key = open(BlobTree, DataSets.dataset("imagenet_local")) do data_tree
   ResNetImageNet.train_solutions(data_tree, path"LOC_train_solution.csv", 1:1000)
 end
 
 # l = ResNetImageNet.CSV.read("ext/final_labels.csv", DataFrame)
 
-const ls = open(BlobTree, DataSets.dataset("imagenet_cyclops")) do dt
+const ls = open(BlobTree, DataSets.dataset("imagenet_local")) do dt
   ResNetImageNet.labels(dt)
 end
 

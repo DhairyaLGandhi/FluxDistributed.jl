@@ -6,19 +6,15 @@ Modern large scale deep learning models have increased in size and number of par
 
 Supports both task based and process based parallelism. The former is suited to single-node parallelism, and the latter to multi-node training. Multi-node training is handled by the same design as multiple locally installed GPU clusters using process based parallelism.
 
-## Basic Usage
+## Setting Up a DataSet
 
-* In the `bin` directory, you would find `driver.jl` which has all the initial configuration and a high level function designed to start the training loop
-* One would notice that the function takes in several arguments and even more keyword arguments. Most of them have sensible defaults but it is worth mentioning a few ones of interest.
-* Start a `julia` command with more threads than the number of logical cores available
-* By default, `driver.jl` starts 4 workers, implying training would happen on 4 GPUs. This may be tweaked according to the number of GPUs available.
-* This demo is written with heterogenous file loading in mind, such that the data to be trained may be from a local filsystem or hosted remotely (such as on Amazon AWS S3 bucket).
+There is a `Data.toml` in the repo which has a few example Datasets. The package uses the `"imagenet_local"` data set by default. Make sure to update the path to where in the system the a dataset is available. In the future, this requirement will be lifted in favour of an API to configure this path in code.
 
-### To start:
+## Single Node Parallelism
+
+### Basic Usage:
 
 Start Julia with the environment of the package activated. This is currently necessary. Start julia with more threads than available. Finally, set up the environment via `] instantiate`.
-
-There is a `Data.toml` in the repo which has a few example Datasets. The package uses the `"imagenet_cyclops"` data set by default. Make sure to update the path to where in the system the a dataset is available. In the future, this requirement will be lifted in favour of an API to configure this path in code.
 
 Here is an example of a simple task based parallel training demo.
 
@@ -59,7 +55,15 @@ Here `model` describes the model to train, `key` describes a table of data and h
 
 `loss` is a typical loss function used to train a large neural network. The current system is set up for supervised learning, with support for semi supervised learning coming soon. More information can be found in the documentation.
 
-### For process based parallelism - multi-node parallelism
+## For process based parallelism - multi-node parallelism
+
+### Basic Usage
+
+* In the `bin` directory, you would find `driver.jl` which has all the initial configuration and a high level function designed to start the training loop
+* One would notice that the function takes in several arguments and even more keyword arguments. Most of them have sensible defaults but it is worth mentioning a few ones of interest.
+* Start a `julia` command with more threads than the number of logical cores available
+* By default, `driver.jl` starts 4 workers, implying training would happen on 4 GPUs. This may be tweaked according to the number of GPUs available.
+* This demo is written with heterogenous file loading in mind, such that the data to be trained may be from a local filsystem or hosted remotely (such as on Amazon AWS S3 bucket).
 
 `rcs` and `updated_grads_channel` are `RemoteChannel` between the first process and all the child processes. These are used to send gradients back and forth in order to synchronise them to perform data parallel training.
 
