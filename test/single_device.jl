@@ -1,4 +1,4 @@
-model = ResNet(34);
+model = ResNet34();
 
 # First test the controlled case with a single GPU
 # and deterministic data
