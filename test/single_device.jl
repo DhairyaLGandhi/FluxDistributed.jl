@@ -10,17 +10,17 @@ end
 
 gpu_model2 = deepcopy(gpu_model);
 
-gpu_grads = gradient(gpu_model) do model
+batchedgrads = gradient(gpu_model) do model
   sum(model(gpu_data))
 end
 
-gpu_grads_x3 = map(1:3) do i
+distributedgrads_x3 = map(1:3) do i
   gradient(deepcopy(gpu_model2)) do model
     sum(model(gpu_data[:,:,:,i:i]))
   end
 end
 
-final = reduce(gpu_grads_x3[2:end], init = gpu_grads_x3[1]) do x, y
+final = reduce(distributedgrads_x3[2:end], init = distributedgrads_x3[1]) do x, y
   Functors.fmap(x, y) do x, y
     ResNetImageNet._accum(x,y)
   end
@@ -31,6 +31,6 @@ function get_sum(gpu_grads_x3)
   gpu_grads_x3[1][1].layers[1][1].layers[1].weight + gpu_grads_x3[2][1].layers[1][1].layers[1].weight + gpu_grads_x3[3][1].layers[1][1].layers[1].weight
 end
 
-@test "Check grads added correctly using `ResNetImageNet._accum`" get_sum(gpu_grads_x3) ≈ final[1].layers[1][1].layers[1].weight
-@test "Check manually added grads against batched grads" get_sum(gpu_grads_x3) ≈ gpu_grads[1].layers[1][1].layers[1].weight
-# compare(final, gpu_grads)
+@test "Check grads added correctly using `ResNetImageNet._accum`" get_sum(distributedgrads_x3) ≈ final[1].layers[1][1].layers[1].weight
+@test "Check manually added grads against batched grads" get_sum(distributedgrads_x3) ≈ batchedgrads[1].layers[1][1].layers[1].weight
+# compare(final, batchedgrads)
