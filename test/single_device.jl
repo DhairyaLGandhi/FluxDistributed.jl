@@ -4,9 +4,11 @@ model = ResNet(34);
 # and deterministic data
 data = rand(Float32, 224, 224, 3, 3);
 
-gpu_model, gpu_data = CUDA.device!(CUDA.device()) do
-  gpu(model), gpu(data)
-end
+# gpu_model, gpu_data = CUDA.device!(CUDA.device()) do
+#   gpu(model), gpu(data)
+# end
+
+gpu_model, gpu_data = gpu(model), gpu(data)
 
 gpu_model2 = deepcopy(gpu_model);
 
