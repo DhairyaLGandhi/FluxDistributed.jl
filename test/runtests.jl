@@ -12,7 +12,7 @@ function compare(y::NamedTuple, ŷ::NamedTuple)
 end
 
 function compare(a::AbstractArray, b::AbstractArray)
-  @test a ≈ b
+  @test isapprox(a, b, rtol = 1f-4, atol = 1f-4)
 end
 
 function compare(a::Base.RefValue, b::Base.RefValue)
@@ -29,7 +29,7 @@ function compare(a::T, b::T) where T
 end
 
 function compare(a, b)
-  @test isapprox(a, b, rtol = 1f-4, atol = 1f-4)
+  @test a ≈ b
 end
 
 getfirst(x::NamedTuple, f) = getfirst(x.f)
