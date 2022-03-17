@@ -47,6 +47,7 @@ get_sum(x) = +(x...)
   for field in (:λ, :β, :γ)
     check_data_parallel(BatchNorm(3), rand(Float32, 3,3,3,3), field = field)
   end
+  check_data_parallel(Chain(Conv((7,7), 3 => 3), BatchNorm(3)), rand(Float32, 32,32,3,3), field = :weight)
   check_data_parallel(Chain(Conv((7,7), 3 => 3), BatchNorm(3)), field = :weight)
 end
 
