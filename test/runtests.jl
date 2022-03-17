@@ -29,7 +29,7 @@ function compare(a::T, b::T) where T
 end
 
 function compare(a, b)
-  @test a ≈ b
+  @test isapprox(a, b, rtol = 1f-4, atol = 1f-4)
 end
 
 getfirst(x::NamedTuple, f) = getfirst(x.f)
