@@ -47,8 +47,15 @@ get_sum(x) = +(x...)
   for field in (:λ, :β, :γ)
     check_data_parallel(BatchNorm(3), rand(Float32, 3,3,3,3), field = field)
   end
-  check_data_parallel(Chain(Conv((7,7), 3 => 3), BatchNorm(3)), rand(Float32, 32,32,3,3), field = :weight)
-  check_data_parallel(Chain(Conv((7,7), 3 => 3), BatchNorm(3)), field = :weight)
+
+  # norm layers dont work on gpus with `track_stats = false`
+  # which seems arbitrary considering we can choose to not update the params
+  # on the Functor side
+  # Making the model testmode! will allow it to run anyway :/
+  # the consequence being that we unwantingly disable dropout
+  # on real models
+  check_data_parallel(Flux.testmode!(Chain(Conv((7,7), 3 => 3), BatchNorm(3))), rand(Float32, 32,32,3,3), field = :weight)
+  check_data_parallel(Flux.testmode!(Chain(Conv((7,7), 3 => 3), BatchNorm(3))), field = :weight)
 end
 
 # manually adding the first weight element from the first layer for every image independently
