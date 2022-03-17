@@ -89,6 +89,7 @@ function test_grad_syncing_in_train(loss, m, nt, buffer, opt,
     # m = deepcopy(gpu_model2)
     gs = Threads.@spawn begin
       if CUDA.functional()
+        dev = length(CUDA.devices()) == 1 ? CUDA.device() : dev
         ResNetImageNet.train_step(loss, buffer, dev, m, x, y)
       else
         train_step_cpu(loss, buffer, dev, m, x, y)
@@ -122,12 +123,13 @@ end
     key = open(BlobTree, DataSets.dataset("imagenet_cyclops")) do data_tree
       ResNetImageNet.train_solutions(data_tree, path"LOC_train_solution.csv", classes)
     end
-    if length(CUDA.device()) == 1
+    if length(CUDA.devices()) == 1
       zmodel = ResNetImageNet.destruct(m)
       st = ResNetImageNet.Optimisers.state(opt, m)
+      ds_and_ms = ntuple(i -> (i, deepcopy(gpu(m))), size(data, ndims(data)))
       buffer = Dict(i => deepcopy(gpu(zmodel)) for i = 1:size(data, ndims(data)))
-    sts = Dict(i => deepcopy(gpu(st)) for i = 1:size(data, ndims(data)))
-    (sts = sts, ds_and_ms = ds_and_ms), buffer
+      sts = Dict(i => deepcopy(gpu(st)) for i = 1:size(data, ndims(data)))
+      (sts = sts, ds_and_ms = ds_and_ms), buffer
     else
       nt, buffer = prepare_training(m, key,
                                     CUDA.devices(),
