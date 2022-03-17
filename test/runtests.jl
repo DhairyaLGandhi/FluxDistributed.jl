@@ -28,6 +28,8 @@ function compare(a::T, b::T) where T
   foreach(f -> compare(getfield(a, f), getfield(b, f)), fs)
 end
 
+compare(x::Union{NTuple{N,Nothing}, Tuple{Vararg{Nothing}}}, ::Nothing) where N = nothing
+
 function compare(a, b)
   @test a ≈ b
 end
