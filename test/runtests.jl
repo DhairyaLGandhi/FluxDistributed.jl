@@ -33,10 +33,9 @@ function compare(a, b)
 end
 
 getfirst(x::NamedTuple, f) = getfirst(x.f)
-getfirst(x::NamedTuple{(:layers,)}, f) = getfirst(x.layer
-s, f)
+getfirst(x::NamedTuple{(:layers,)}, f) = getfirst(x.layers, f)
 getfirst(x::Tuple, f) = getfirst(first(x), f)
-getfirst(x::NamedTuple, f) = getfirst(x.f, f)
+getfirst(x::NamedTuple, f) = getfirst(getfield(x, f), f)
 getfirst(x, f) = x
 
 @testset "Single Device vs. Many Devices" begin
