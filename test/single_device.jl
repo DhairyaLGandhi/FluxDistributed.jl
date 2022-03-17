@@ -33,6 +33,11 @@ function get_sum(gpu_grads_x3)
   gpu_grads_x3[1][1].layers[1][1].layers[1].weight + gpu_grads_x3[2][1].layers[1][1].layers[1].weight + gpu_grads_x3[3][1].layers[1][1].layers[1].weight
 end
 
-@test "Check grads added correctly using `ResNetImageNet._accum`" get_sum(distributedgrads_x3) ≈ final[1].layers[1][1].layers[1].weight
-@test "Check manually added grads against batched grads" get_sum(distributedgrads_x3) ≈ batchedgrads[1].layers[1][1].layers[1].weight
+@testset "Check grads added correctly using `ResNetImageNet._accum`" begin
+  @test get_sum(distributedgrads_x3) ≈ final[1].layers[1][1].layers[1].weight
+end
+
+@testset "Check manually added grads against batched grads" begin
+  @test get_sum(distributedgrads_x3) ≈ batchedgrads[1].layers[1][1].layers[1].weight
+end
 # compare(final, batchedgrads)
