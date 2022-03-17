@@ -56,6 +56,8 @@ get_sum(x) = +(x...)
   # on real models
   check_data_parallel(Flux.testmode!(Chain(Conv((7,7), 3 => 3), BatchNorm(3))), rand(Float32, 32,32,3,3), field = :weight)
   check_data_parallel(Flux.testmode!(Chain(Conv((7,7), 3 => 3), BatchNorm(3))), field = :weight)
+  check_data_parallel(Flux.testmode!(ResNet34()), field = :weight)
+  check_data_parallel(ResNet34(), field = :weight)
 end
 
 # manually adding the first weight element from the first layer for every image independently
