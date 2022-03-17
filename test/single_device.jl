@@ -75,32 +75,46 @@ function test_grad_syncing_in_train(loss, m, nt, buffer, opt,
   gpu_model, gpu_data, gpu_labels = gpu(m), gpu(data), gpu(labels)
   gpu_model2 = deepcopy(gpu_model)
 
-  batchedgrads = gradient(gpu_model) do model
+  batchedgrads, = gradient(gpu_model) do model
     loss(model(gpu_data), gpu_labels)
   end
 
-  colons = ntuple(_ -> Colon(), ndims(gpu_data) - 1)
+  colons_data = ntuple(_ -> Colon(), ndims(gpu_data) - 1)
+  colons_labels = ntuple(_ -> Colon(), ndims(gpu_labels) - 1)
   ts = []
   # for j in 1:size(data, ndims(data))
   for ((dev,m), j) in zip(ds_and_ms, 1:size(data, ndims(data)))
-    x = gpu_data[colons..., j:j]
-    y = gpu_labels[colons..., j:j]
+    x = gpu_data[colons_data..., j:j]
+    y = gpu_labels[colons_labels..., j:j]
     # m = deepcopy(gpu_model2)
-    gs = Threads.@spawn train_step(loss, buffer, dev, m, x, y)
+    gs = Threads.@spawn begin
+      if CUDA.functional()
+        ResNetImageNet.train_step(loss, buffer, dev, m, x, y)
+      else
+        train_step_cpu(loss, buffer, dev, m, x, y)
+      end
+    end
     push!(ts, Base.errormonitor(gs))
   end
   gs = ts
   wait.(gs)
-  final = sync_buffer(buffer, dodiv = false)
-  compare(final, batchedgrads)
+  final = ResNetImageNet.sync_buffer(buffer, dodiv = false)
+  final, batchedgrads
 end
 
+# Copy the train_step function minus the CUDA.device! which will error w/o a GPU
+# TODO: add `@device! dev ex` which checks if CUDA.functional CUDA.device!(dev) do ex() end else ex end
+function train_step_cpu(loss, buffer, dev, m, x, y)
+  gs, = gradient(m -> loss(m(x), y), m)
+  ResNetImageNet.markbuffer!(buffer[dev], gs, dev)
+  gs
+end
 
 @testset "Workflow" begin
   loss = Flux.Losses.logitcrossentropy
   data = rand(Float32, 32, 32, 3, 3)
   labels = Flux.onehotbatch(rand(1:10, 3), 1:10)
-  m = Chain(Conv((7,7), 3 => 3), Flux.flatten, Dense(2028, 3))
+  m = Chain(Conv((7,7), 3 => 3), Flux.flatten, Dense(2028, 10))
   opt = ResNetImageNet.Optimisers.Momentum()
   nt, buffer = if CUDA.functional()
     classes = 1:1000
@@ -108,19 +122,29 @@ end
     key = open(BlobTree, DataSets.dataset("imagenet_cyclops")) do data_tree
       ResNetImageNet.train_solutions(data_tree, path"LOC_train_solution.csv", classes)
     end
-
-    nt, buffer = prepare_training(m, key,
-                                  CUDA.devices(),
-                                  opt,
-                                  1,
-                                  cycle = 1,
-                                  buffersize = 1)
+    if length(CUDA.device()) == 1
+      zmodel = ResNetImageNet.destruct(m)
+      st = ResNetImageNet.Optimisers.state(opt, m)
+      buffer = Dict(i => deepcopy(gpu(zmodel)) for i = 1:size(data, ndims(data)))
+    sts = Dict(i => deepcopy(gpu(st)) for i = 1:size(data, ndims(data)))
+    (sts = sts, ds_and_ms = ds_and_ms), buffer
+    else
+      nt, buffer = prepare_training(m, key,
+                                    CUDA.devices(),
+                                    opt,
+                                    1,
+                                    cycle = 1,
+                                    buffersize = 1)
+    end
   else
-    ds_and_ms = ntuple(i -> (i, deepcopy(m)), 1:size(data, ndims(data)))
+    ds_and_ms = ntuple(i -> (i, deepcopy(m)), size(data, ndims(data)))
     zmodel = ResNetImageNet.destruct(m)
     st = ResNetImageNet.Optimisers.state(opt, m)
     buffer = Dict(i => deepcopy(zmodel) for i = 1:size(data, ndims(data)))
     sts = Dict(i => deepcopy(st) for i = 1:size(data, ndims(data)))
     (sts = sts, ds_and_ms = ds_and_ms), buffer
   end
+
+  distributedgrad, batchedgrad = test_grad_syncing_in_train(loss, m, nt, buffer, opt, data, labels)
+  compare(distributedgrad, batchedgrad)
 end
