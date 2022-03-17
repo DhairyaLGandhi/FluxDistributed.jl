@@ -30,19 +30,21 @@ function check_data_parallel(m, data = rand(Float32, 224,224,3,3))
     end
 
     @testset "Manually accumulating grads against batched" begin
-      compare(get_sum(distributedgrads_x3), batchedgrads[1].weight)
+      compare(get_sum(getfirst.(distributedgrads_x3, :weight)), getfirst(batchedgrads, :weight))
     end
   end
 end
 
 function get_sum(x)
-  x[1][1].weight + x[2][1].weight + x[3][1].weight
+  # x[1][1].weight + x[2][1].weight + x[3][1].weight
+  +(x...)
 end
 
 # Check gradients are collected correctly for single layers
 @testset "Distributed Gradient accumulation" begin
   check_data_parallel(Conv((7,7), 3 => 4))
   check_data_parallel(Dense(10, 3), rand(Float32, 10, 3))
+  check_data_parallel(Chain(Dense(10,5), Dense(5, 3)), rand(Float32, 10, 3))
 end
 
 # manually adding the first weight element from the first layer for every image independently
