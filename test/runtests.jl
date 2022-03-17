@@ -41,3 +41,7 @@ getfirst(x, f) = x
 @testset "Single Device vs. Many Devices" begin
   include("single_device.jl")
 end
+
+@testset "Distributed Optimisation" begin
+  include("optimise.jl")
+end

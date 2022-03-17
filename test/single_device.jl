@@ -63,3 +63,64 @@ end
 
 # manually adding the first weight element from the first layer for every image independently
 
+function test_grad_syncing_in_train(loss, m, nt, buffer, opt,
+			            data = rand(Float32, 224,224,3,3),
+				    labels = Flux.onehotbatch(rand(1:10, 3), 10))
+  ds_and_ms = nt.ds_and_ms
+  sts = nt.sts
+
+  # NOTE: Do not use nt.dls here since we want to isolate the various parts as we test
+  # them, and the dataloading is a separate component that needs to be tested
+
+  gpu_model, gpu_data, gpu_labels = gpu(m), gpu(data), gpu(labels)
+  gpu_model2 = deepcopy(gpu_model)
+
+  batchedgrads = gradient(gpu_model) do model
+    loss(model(gpu_data), gpu_labels)
+  end
+
+  colons = ntuple(_ -> Colon(), ndims(gpu_data) - 1)
+  ts = []
+  # for j in 1:size(data, ndims(data))
+  for ((dev,m), j) in zip(ds_and_ms, 1:size(data, ndims(data)))
+    x = gpu_data[colons..., j:j]
+    y = gpu_labels[colons..., j:j]
+    # m = deepcopy(gpu_model2)
+    gs = Threads.@spawn train_step(loss, buffer, dev, m, x, y)
+    push!(ts, Base.errormonitor(gs))
+  end
+  gs = ts
+  wait.(gs)
+  final = sync_buffer(buffer, dodiv = false)
+  compare(final, batchedgrads)
+end
+
+
+@testset "Workflow" begin
+  loss = Flux.Losses.logitcrossentropy
+  data = rand(Float32, 32, 32, 3, 3)
+  labels = Flux.onehotbatch(rand(1:10, 3), 1:10)
+  m = Chain(Conv((7,7), 3 => 3), Flux.flatten, Dense(2028, 3))
+  opt = ResNetImageNet.Optimisers.Momentum()
+  nt, buffer = if CUDA.functional()
+    classes = 1:1000
+
+    key = open(BlobTree, DataSets.dataset("imagenet_cyclops")) do data_tree
+      ResNetImageNet.train_solutions(data_tree, path"LOC_train_solution.csv", classes)
+    end
+
+    nt, buffer = prepare_training(m, key,
+                                  CUDA.devices(),
+                                  opt,
+                                  1,
+                                  cycle = 1,
+                                  buffersize = 1)
+  else
+    ds_and_ms = ntuple(i -> (i, deepcopy(m)), 1:size(data, ndims(data)))
+    zmodel = ResNetImageNet.destruct(m)
+    st = ResNetImageNet.Optimisers.state(opt, m)
+    buffer = Dict(i => deepcopy(zmodel) for i = 1:size(data, ndims(data)))
+    sts = Dict(i => deepcopy(st) for i = 1:size(data, ndims(data)))
+    (sts = sts, ds_and_ms = ds_and_ms), buffer
+  end
+end
