@@ -4,16 +4,17 @@ model = ResNet34();
 # and deterministic data
 
 function check_data_parallel(m, data = rand(Float32, 224,224,3,3))
-  gpu_model, gpu_data = gpu(model), gpu(data)
+  gpu_model, gpu_data = gpu(m), gpu(data)
   gpu_model2 = deepcopy(gpu_model)
   
   batchedgrads = gradient(gpu_model) do model
     sum(model(gpu_data))
   end
 
+  colons = ntuple(_ -> Colon(), ndims(gpu_data) - 1)
   distributedgrads_x3 = map(1:3) do i
     gradient(deepcopy(gpu_model2)) do model
-      sum(model(gpu_data[:,:,:,i:i]))
+      sum(model(gpu_data[colons...,i:i]))
     end
   end
 
@@ -23,12 +24,14 @@ function check_data_parallel(m, data = rand(Float32, 224,224,3,3))
     end
   end
 
-  @testset "Check accuulating grads using _accum" begin
-    compare(final, batchedgrads)
-  end
+  @testset "$(typeof(m))" begin
+    @testset "Check accuulating grads using _accum" begin
+      compare(final, batchedgrads)
+    end
 
-  @testset "Manually accumulating grads against batched" begin
-    compare(get_sum(distributedgrads_x3), batchedgrads)
+    @testset "Manually accumulating grads against batched" begin
+      compare(get_sum(distributedgrads_x3), batchedgrads[1].weight)
+    end
   end
 end
 
@@ -36,12 +39,11 @@ function get_sum(x)
   x[1][1].weight + x[2][1].weight + x[3][1].weight
 end
 
-check_data_parallel(ResNet34().layers[1][1])
-# check_data_parallel(ResNet34())
+# Check gradients are collected correctly for single layers
+@testset "Distributed Gradient accumulation" begin
+  check_data_parallel(Conv((7,7), 3 => 4))
+  check_data_parallel(Dense(10, 3), rand(Float32, 10, 3))
+end
 
 # manually adding the first weight element from the first layer for every image independently
-# function get_sum(gpu_grads_x3)
-#   gpu_grads_x3[1][1].layers[1][1].layers[1].weight + gpu_grads_x3[2][1].layers[1][1].layers[1].weight + gpu_grads_x3[3][1].layers[1][1].layers[1].weight
-# end
 
-# compare(final, batchedgrads)
