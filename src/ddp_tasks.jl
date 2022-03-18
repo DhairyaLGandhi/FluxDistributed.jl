@@ -67,7 +67,7 @@ function markbuffer!(dest, src, dev)
     _copyto!(y, x)
     x
   end
-  CUDA.synchronize()
+  synchronize()
 end
 
 function getbuffer!(dest, src, dev)
@@ -166,9 +166,9 @@ function update(opt, (dev,m), g, final, st)
   m, st = CUDA.device!(dev) do
     grad = fetch(g)
     getbuffer!(grad, final, dev)
-    CUDA.synchronize()
+    synchronize()
     m, st = opt(m, grad, st)
-    CUDA.synchronize()
+    synchronize()
     m, st
   end
 end

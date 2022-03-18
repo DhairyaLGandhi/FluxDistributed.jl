@@ -1,3 +1,9 @@
+if CUDA.functional()
+  synchronize() = CUDA.synchronize()
+else
+  synchronize() = nothing
+end
+
 function maxk!(ix, a, k; initialized=false)
   partialsortperm!(ix, a, 1:k, rev=true, initialized=initialized)
   @views collect(zip(ix[1:k], a[ix[1:k]]))
