@@ -40,9 +40,7 @@ getfirst(x::Tuple, f) = getfirst(first(x), f)
 getfirst(x::NamedTuple, f) = getfirst(getfield(x, f), f)
 getfirst(x, f) = x
 
-@testset "Single Device vs. Many Devices" begin
-  include("single_device.jl")
-end
+include("single_device.jl")
 
 @testset "Distributed Optimisation" begin
   include("optimise.jl")
