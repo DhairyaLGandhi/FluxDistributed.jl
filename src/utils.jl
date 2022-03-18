@@ -1,3 +1,15 @@
+macro device!(dev, ex)
+  if CUDA.functional()
+    return quote
+      CUDA.device!($(esc(dev))) do
+        $(esc(ex))
+      end
+    end
+  else
+    return ex
+  end
+end
+
 function maxk!(ix, a, k; initialized=false)
   partialsortperm!(ix, a, 1:k, rev=true, initialized=initialized)
   @views collect(zip(ix[1:k], a[ix[1:k]]))
