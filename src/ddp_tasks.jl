@@ -92,7 +92,7 @@ check_nans(x::AbstractArray) = any(isnan, x)
 check_nans(::Nothing) = false
 check_nans(x) = isnan(x)
 
-function sync_buffer(buffer; dodiv = true)
+function sync_buffer(buffer)
   vals = collect(values(buffer))
   final = reduce(vals[2:end], init = vals[1]) do x,y
     Functors.fmap(x, y) do x, y
@@ -102,20 +102,11 @@ function sync_buffer(buffer; dodiv = true)
     end
   end
 
-  dodiv || return final
   final = Functors.fmap(final) do x
     isnothing(x) && return x
     ResNetImageNet._dodiv(x, Float32(length(vals)))
   end
 
-  # Mark into the preallocated buffer
-  # This broadcasts the updated gradients
-  # to all the GPUs 
-  # ts = []
-  # for (dev,g) in pairs(buffer)
-  #   markbuffer!(g, final, dev)
-  # end
-  # wait.(ts)
   final 
 end
 

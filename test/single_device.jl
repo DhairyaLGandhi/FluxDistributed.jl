@@ -64,8 +64,8 @@ end
 # manually adding the first weight element from the first layer for every image independently
 
 function test_grad_syncing_in_train(loss, m, nt, buffer, opt,
-			            data = rand(Float32, 224,224,3,3),
-				    labels = Flux.onehotbatch(rand(1:10, 3), 10))
+                                    data = rand(Float32, 224,224,3,3),
+                                    labels = Flux.onehotbatch(rand(1:10, 3), 10))
   ds_and_ms = nt.ds_and_ms
   sts = nt.sts
 
@@ -82,30 +82,29 @@ function test_grad_syncing_in_train(loss, m, nt, buffer, opt,
   colons_data = ntuple(_ -> Colon(), ndims(gpu_data) - 1)
   colons_labels = ntuple(_ -> Colon(), ndims(gpu_labels) - 1)
   ts = []
-  # for j in 1:size(data, ndims(data))
   for ((dev,m), j) in zip(ds_and_ms, 1:size(data, ndims(data)))
     x = gpu_data[colons_data..., j:j]
     y = gpu_labels[colons_labels..., j:j]
-    # m = deepcopy(gpu_model2)
     gs = Threads.@spawn begin
-      if CUDA.functional()
-        dev = length(CUDA.devices()) == 1 ? CUDA.device() : dev
-        ResNetImageNet.train_step(loss, buffer, dev, m, x, y)
-      else
-        train_step_cpu(loss, buffer, dev, m, x, y)
-      end
+      train_step_cpu(loss, buffer, dev, m, x, y)
     end
     push!(ts, Base.errormonitor(gs))
   end
   gs = ts
   wait.(gs)
-  final = ResNetImageNet.sync_buffer(buffer, dodiv = false)
+  final = ResNetImageNet.sync_buffer(buffer)
   final, batchedgrads
 end
 
 # Copy the train_step function minus the CUDA.device! which will error w/o a GPU
 # TODO: add `@device! dev ex` which checks if CUDA.functional CUDA.device!(dev) do ex() end else ex end
 function train_step_cpu(loss, buffer, dev, m, x, y)
+  gs, = gradient(m -> loss(m(x), y), m)
+  ResNetImageNet.markbuffer!(buffer[dev], gs, dev)
+  gs
+end
+
+function train_step_cpu(loss, buffer, dev::Int, m, x, y)
   gs, = gradient(m -> loss(m(x), y), m)
   ResNetImageNet.markbuffer!(buffer[dev], gs, dev)
   gs
@@ -119,26 +118,28 @@ end
   opt = ResNetImageNet.Optimisers.Momentum()
   nt, buffer = if CUDA.functional()
     classes = 1:1000
-
     key = open(BlobTree, DataSets.dataset("imagenet_cyclops")) do data_tree
       ResNetImageNet.train_solutions(data_tree, path"LOC_train_solution.csv", classes)
     end
+
     if length(CUDA.devices()) == 1
       zmodel = ResNetImageNet.destruct(m)
       st = ResNetImageNet.Optimisers.state(opt, m)
-      ds_and_ms = ntuple(i -> (i, deepcopy(gpu(m))), size(data, ndims(data)))
       buffer = Dict(i => deepcopy(gpu(zmodel)) for i = 1:size(data, ndims(data)))
+      ds_and_ms = ntuple(i -> (i, deepcopy(gpu(m))), size(data, ndims(data)))
       sts = Dict(i => deepcopy(gpu(st)) for i = 1:size(data, ndims(data)))
       (sts = sts, ds_and_ms = ds_and_ms), buffer
     else
+      @warn "in the many gpu case"
       nt, buffer = prepare_training(m, key,
-                                    CUDA.devices(),
-                                    opt,
-                                    1,
-                                    cycle = 1,
-                                    buffersize = 1)
+                                  CUDA.devices(),
+                                  opt,
+                                  1,
+                                  cycle = 1,
+                                  buffersize = 1)
     end
   else
+    @warn "in the no gpu case"
     ds_and_ms = ntuple(i -> (i, deepcopy(m)), size(data, ndims(data)))
     zmodel = ResNetImageNet.destruct(m)
     st = ResNetImageNet.Optimisers.state(opt, m)
