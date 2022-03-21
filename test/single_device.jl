@@ -112,11 +112,12 @@ end
 
 function check_distributed_opt(opt, ds_and_ms, buffer, gs, sts)
   new_ms = []
-  new_ds_and_ms = map(ds_and_ms) do dev, m
-    dnm = dev, m
+  new_ds_and_ms = map(ds_and_ms) do dnm
+    # dnm = dev, m
+    dev, m = dnm
     g = buffer[dev]
     t_opt = Threads.@spawn begin
-      m, st = update(opt, dnm, g, final, sts[dev])
+      m, st = update(opt, dnm, g, gs, sts[dev])
       sts[dev] = st
       m
     end
