@@ -270,6 +270,7 @@ function prepare_training(resnet, key, devices, opt, nsamples;
   buffer = Dict()
   zmodel = destruct(resnet)
   st = ResNetImageNet.Optimisers.state(opt, resnet)
+  dc = DataCache(ImageNet(key, nothing))
   for dev in devices
     Threads.@spawn begin
       buffer[dev] = CUDA.device!(HOST) do
@@ -286,7 +287,7 @@ function prepare_training(resnet, key, devices, opt, nsamples;
       sts[dev] = gpu(st)
       dl = open(BlobTree, DataSets.dataset("imagenet_local")) do data_tree
         dl = Flux.Data.DataLoader((ns,), buffersize = buffersize) do x
-          shard = minibatch(data_tree, k, nsamples = x, class_idx = classes)
+          shard = minibatch(data_tree, dc, nsamples = x, class_idx = classes)
           CUDA.device!(dev) do
             gpu(shard)
           end
