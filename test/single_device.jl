@@ -110,6 +110,21 @@ function train_step_cpu(loss, buffer, dev::Int, m, x, y)
   gs
 end
 
+function check_distributed_opt(opt, ds_and_ms, buffer, gs, sts)
+  new_ms = []
+  new_ds_and_ms = map(ds_and_ms) do dev, m
+    dnm = dev, m
+    g = buffer[dev]
+    t_opt = Threads.@spawn begin
+      m, st = update(opt, dnm, g, final, sts[dev])
+      sts[dev] = st
+      m
+    end
+    (dev, fetch(Base.errormonitor(t_opt)))
+  end
+  map(x -> x[2], new_ds_and_ms), sts
+end
+
 @testset "Workflow" begin
   loss = Flux.Losses.logitcrossentropy
   data = rand(Float32, 32, 32, 3, 3)
@@ -150,4 +165,10 @@ end
 
   distributedgrad, batchedgrad = test_grad_syncing_in_train(loss, m, nt, buffer, opt, data, labels)
   compare(distributedgrad, batchedgrad)
+
+
+  # Check distrbiuted optimization
+  batchedmodel, batchedstate = opt(m, batchedgrad, st)
+  distributedmodels, distributedstates = check_distributed_opt(opt, nt.ds_and_ms, buffer, distributedgrad, nt.sts)
+  compare(batchedmodel, distributedmodels[1])
 end
