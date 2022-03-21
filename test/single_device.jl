@@ -117,7 +117,7 @@ function check_distributed_opt(opt, ds_and_ms, buffer, gs, sts)
     dev, m = dnm
     g = buffer[dev]
     t_opt = Threads.@spawn begin
-      m, st = update(opt, dnm, g, gs, sts[dev])
+      m, st = ResNetImageNet.update(opt, dnm, g, gs, sts[dev])
       sts[dev] = st
       m
     end
