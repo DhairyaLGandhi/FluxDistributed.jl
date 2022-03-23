@@ -78,9 +78,7 @@ function getbuffer!(dest, src, dev)
 end
 
 function train_step(loss, buffer, dev, m, x, y)
-  gs, = CUDA.device!(dev) do
-    gradient(m -> loss(m(x), y), m)
-  end
+  gs, = @device! dev gradient(m -> loss(m(x), y), m)
   markbuffer!(buffer[dev], gs, dev)
   gs
 end
@@ -137,7 +135,7 @@ end
 
 log_loss_and_acc(loss, (dev, model), val::Nothing, dataset = "val") = nothing
 function log_loss_and_acc(loss, (dev, model), val, dataset = "val"; k = (1,5,10))
-  l, fw = CUDA.device!(dev) do
+  l, fw = @device! dev begin
     gval = gpu(val)
     loss(model(gval[1]), gval[2]), cpu(model(gval[1]))
   end
@@ -171,7 +169,7 @@ end
 # end
 
 function update(opt, (dev,m), g, final, st)
-  m, st = CUDA.device!(dev) do
+  m, st = @device! dev begin
     grad = fetch(g)
     getbuffer!(grad, final, dev)
     CUDA.synchronize()
@@ -250,7 +248,7 @@ function train(loss, nt, buffer, opt; val = nothing, sched = identity)
   println("Num Missed: $num_missed")
   map(ds_and_ms) do dnm
     dev, m = dnm
-    CUDA.device!(dev) do
+    @device! dev begin
       dev, cpu(m)
     end
   end
@@ -272,7 +270,7 @@ function prepare_training(resnet, key, devices, opt, nsamples;
   st = ResNetImageNet.Optimisers.state(opt, resnet)
   for dev in devices
     Threads.@spawn begin
-      buffer[dev] = CUDA.device!(HOST) do
+      buffer[dev] = @device! HOST begin
         gpu(zmodel)
       end
     end
@@ -281,13 +279,13 @@ function prepare_training(resnet, key, devices, opt, nsamples;
   devs_and_ms = []
   sts = Dict()
   for (k,dev) in zip(ks, devices)
-    CUDA.device!(dev) do
+    @device! dev begin
       push!(devs_and_ms, (dev, gpu(resnet)))
       sts[dev] = gpu(st)
       dl = open(BlobTree, DataSets.dataset("imagenet_local")) do data_tree
         dl = Flux.Data.DataLoader((ns,), buffersize = buffersize) do x
           shard = minibatch(data_tree, k, nsamples = x, class_idx = classes)
-          CUDA.device!(dev) do
+          @device! dev begin
             gpu(shard)
           end
         end
