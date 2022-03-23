@@ -1,12 +1,8 @@
 if CUDA.functional()
-
   synchronize() = CUDA.synchronize()
-
 else
-
   synchronize() = nothing
 end
-
 
 macro device!(dev, ex)
   if CUDA.functional()
@@ -16,7 +12,7 @@ macro device!(dev, ex)
       end
     end
   else
-    return ex
+    return :($(esc(ex)))
   end
 
 end
