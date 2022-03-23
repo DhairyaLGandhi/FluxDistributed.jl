@@ -172,4 +172,6 @@ end
   batchedmodel, batchedstate = opt(m, batchedgrad, st)
   distributedmodels, distributedstates = check_distributed_opt(opt, nt.ds_and_ms, buffer, distributedgrad, nt.sts)
   compare(batchedmodel, distributedmodels[1])
+  compare(distributedmodel[2], distributedmodel[3])
+  compare(distributedstates[1], batchedstates) 
 end
