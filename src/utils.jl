@@ -1,7 +1,24 @@
 if CUDA.functional()
+
   synchronize() = CUDA.synchronize()
+
 else
+
   synchronize() = nothing
+end
+
+
+macro device!(dev, ex)
+  if CUDA.functional()
+    return quote
+      CUDA.device!($(esc(dev))) do
+        $(esc(ex))
+      end
+    end
+  else
+    return ex
+  end
+
 end
 
 function maxk!(ix, a, k; initialized=false)
