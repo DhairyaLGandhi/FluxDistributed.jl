@@ -96,20 +96,6 @@ function test_grad_syncing_in_train(loss, m, nt, buffer, opt,
   final, batchedgrads
 end
 
-# Copy the train_step function minus the CUDA.device! which will error w/o a GPU
-# TODO: add `@device! dev ex` which checks if CUDA.functional CUDA.device!(dev) do ex() end else ex end
-function train_step_cpu(loss, buffer, dev, m, x, y)
-  gs, = gradient(m -> loss(m(x), y), m)
-  ResNetImageNet.markbuffer!(buffer[dev], gs, dev)
-  gs
-end
-
-function train_step_cpu(loss, buffer, dev::Int, m, x, y)
-  gs, = gradient(m -> loss(m(x), y), m)
-  ResNetImageNet.markbuffer!(buffer[dev], gs, dev)
-  gs
-end
-
 function check_distributed_opt(opt, ds_and_ms, buffer, gs, sts)
   new_ms = []
   new_ds_and_ms = map(ds_and_ms) do dnm
