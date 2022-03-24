@@ -86,7 +86,7 @@ function test_grad_syncing_in_train(loss, m, nt, buffer, opt,
     x = gpu_data[colons_data..., j:j]
     y = gpu_labels[colons_labels..., j:j]
     gs = Threads.@spawn begin
-      train_step_cpu(loss, buffer, dev, m, x, y)
+      ResNetImagenet.train_step(loss, buffer, dev, m, x, y)
     end
     push!(ts, Base.errormonitor(gs))
   end
