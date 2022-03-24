@@ -168,10 +168,12 @@ end
   compare(distributedgrad, batchedgrad)
 
 
-  # Check distrbiuted optimization
-  batchedmodel, batchedstate = opt(m, batchedgrad, st)
-  distributedmodels, distributedstates = check_distributed_opt(opt, nt.ds_and_ms, buffer, distributedgrad, nt.sts)
-  compare(batchedmodel, distributedmodels[1])
-  compare(distributedmodels[2], distributedmodels[3])
-  compare(distributedstates[1], batchedstate) 
+  @testset "Distributed Optimization" begin
+    # Check distrbiuted optimization
+    batchedmodel, batchedstate = opt(m, batchedgrad, st)
+    distributedmodels, distributedstates = check_distributed_opt(opt, nt.ds_and_ms, buffer, distributedgrad, nt.sts)
+    compare(batchedmodel, distributedmodels[1])
+    compare(distributedmodels[2], distributedmodels[3])
+    compare(distributedstates[1], batchedstate)
+  end 
 end

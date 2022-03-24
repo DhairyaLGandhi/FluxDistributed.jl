@@ -42,6 +42,3 @@ getfirst(x, f) = x
 
 include("single_device.jl")
 
-@testset "Distributed Optimisation" begin
-  include("optimise.jl")
-end
