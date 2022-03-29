@@ -12,11 +12,9 @@ DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 DataSets = "c9661210-8a83-48f0-b833-72e62abce419"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
-EzXML = "8f5d6c58-4d21-5cfd-889c-e3ad7ee6a615"
 FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 Functors = "d9f16b24-f501-4c13-a1f2-28368ffc5196"
-ImageDraw = "4381153b-2b60-58ae-a1ba-fd683676385f"
 ImageMagick = "6218d12a-5da1-5696-b52f-db25d2ecc6d1"
 Images = "916415d5-f1e6-5110-898d-aaa5f9f070e0"
 JpegTurbo = "b835a17e-a41a-41e7-81f0-2f016b05efe0"
@@ -29,6 +27,7 @@ Optimisers = "3bd65402-5787-11e9-1adc-39752487f4e2"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Requires = "ae029012-a4dd-5104-9daa-d747884805df"
 Serialization = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 
 [compat]
@@ -38,3 +37,13 @@ Flux = "0.12"
 NNlib = "0.7, 0.8"
 Optimisers = "0.1"
 Zygote = "0.6"
+julia = "1.7"
+
+[extras]
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
+Metalhead = "dbeba491-748d-5e0e-a39e-b530a07fa0cc"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["CUDA", "Flux", "Metalhead", "Test"]

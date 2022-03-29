@@ -67,7 +67,7 @@ function markbuffer!(dest, src, dev)
     _copyto!(y, x)
     x
   end
-  CUDA.synchronize()
+  synchronize()
 end
 
 function getbuffer!(dest, src, dev)
@@ -105,14 +105,6 @@ function sync_buffer(buffer)
     ResNetImageNet._dodiv(x, Float32(length(vals)))
   end
 
-  # Mark into the preallocated buffer
-  # This broadcasts the updated gradients
-  # to all the GPUs 
-  ts = []
-  for (dev,g) in pairs(buffer)
-    markbuffer!(g, final, dev)
-  end
-  wait.(ts)
   final 
 end
 
@@ -172,9 +164,9 @@ function update(opt, (dev,m), g, final, st)
   m, st = @device! dev begin
     grad = fetch(g)
     getbuffer!(grad, final, dev)
-    CUDA.synchronize()
+    synchronize()
     m, st = opt(m, grad, st)
-    CUDA.synchronize()
+    synchronize()
     m, st
   end
 end
