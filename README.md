@@ -19,7 +19,7 @@ Start Julia with the environment of the package activated. This is currently nec
 Here is an example of a simple task based parallel training demo.
 
 ```julia
-julia> using ResNetImageNet, Flux, Metalhead, DataSets
+julia> using ResNetImageNet, Metalhead, Flux, CUDA,, Optimisers, DataSets
 
 julia> classes = 1:1000
 1:1000
