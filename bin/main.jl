@@ -1,8 +1,8 @@
-using ResNetImageNet
-using ResNetImageNet.BSON
-using ResNetImageNet.Metalhead
-using ResNetImageNet.Flux
-using ResNetImageNet.DataSets
+using FluxDistributed
+using FluxDistributed.BSON
+using FluxDistributed.Metalhead
+using FluxDistributed.Flux
+using FluxDistributed.DataSets
 
 using Distributed
-@everywhere using Flux, BSON, CUDA, Metalhead, Zygote, Distributed, DataSets, ResNetImageNet
+@everywhere using Flux, BSON, CUDA, Metalhead, Zygote, Distributed, DataSets, FluxDistributed

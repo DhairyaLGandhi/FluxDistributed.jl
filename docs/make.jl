@@ -1,8 +1,8 @@
 using Documenter
-using ResNetImageNet
+using FluxDistributed
 
-DocMeta.setdocmeta!(ResNetImageNet, :DocTestSetup, :(using ResNetImageNet); recursive = true)
-makedocs(modules = [ResNetImageNet],
+DocMeta.setdocmeta!(FluxDistributed, :DocTestSetup, :(using FluxDistributed); recursive = true)
+makedocs(modules = [FluxDistributed],
          doctest = VERSION == v"1.6",
          sitename = "Data Parallel Training",
          pages = ["Home" => "index.md",
@@ -14,7 +14,7 @@ makedocs(modules = [ResNetImageNet],
              prettyurls = get(ENV, "CI", nothing) == "true"),
          )
 
-deploydocs(repo = "github.com/DhairyaLGandhi/ResNetImageNet.jl.git",
+deploydocs(repo = "github.com/DhairyaLGandhi/FluxDistributed.jl.git",
            target = "build",
            devbranch = "main",
            push_preview = true)

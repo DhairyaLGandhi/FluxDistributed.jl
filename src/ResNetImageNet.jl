@@ -1,4 +1,4 @@
-module ResNetImageNet
+module FluxDistributed
 
 using Flux, CUDA
 using Metalhead

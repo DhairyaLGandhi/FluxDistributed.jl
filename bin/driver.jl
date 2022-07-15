@@ -4,13 +4,13 @@ addprocs(4, exeflags = ["--project", "-t8"])
 @everywhere include("main.jl")
 
 const key = open(BlobTree, DataSets.dataset("imagenet_local")) do data_tree
-  ResNetImageNet.train_solutions(data_tree, path"LOC_train_solution.csv", 1:1000)
+  FluxDistributed.train_solutions(data_tree, path"LOC_train_solution.csv", 1:1000)
 end
 
-# l = ResNetImageNet.CSV.read("ext/final_labels.csv", DataFrame)
+# l = FluxDistributed.CSV.read("ext/final_labels.csv", DataFrame)
 
 const ls = open(BlobTree, DataSets.dataset("imagenet_local")) do dt
-  ResNetImageNet.labels(dt)
+  FluxDistributed.labels(dt)
 end
 
 # classes = mapreduce(vcat, l[!,:label]) do x
@@ -26,7 +26,7 @@ function run_distributed(key, resnet, loss, rcs, updated_grads_channel; classes 
   rs = [resnet for _ in workers()];
   opt = Optimisers.ADAM()
 
-  fs = ResNetImageNet.start(loss, 1,
+  fs = FluxDistributed.start(loss, 1,
 			 key, rs, workers(),
 			 rcs, updated_grads_channel;
                          class_idx = classes,

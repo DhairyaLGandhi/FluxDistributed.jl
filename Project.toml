@@ -1,4 +1,4 @@
-name = "ResNetImageNet"
+name = "FluxDistributed"
 uuid = "5a18e622-f1dd-464e-9eb6-7e3502960bf9"
 authors = ["Dhairya Gandhi <dhairyagandhi96@gmail.com>"]
 version = "0.1.0"

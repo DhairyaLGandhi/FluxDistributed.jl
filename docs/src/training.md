@@ -9,7 +9,7 @@ There are several strategies that can be employed for parallel loading of data. 
 In this package, the `prepare_training` function uses a modified version of a Flux DataLoader which can simultaneously feed `N` accelerators, load data and move it to the accelerator in parallel with the training. This way, one can write custom loading and preprocessing scripts to be run in parallel with the training, and evern overlapping network costs to move data to the accelerator without training loop needing to wait for the data to be available to it. Data is managed through DataSets.jl (it is also useful for setting up any custom dataset, and more information can be found in the [datasets document](../datasets.md).
 
 ```@docs
-ResNetImageNet.prepare_training
+FluxDistributed.prepare_training
 ```
 
 ## Syncing Gradients
@@ -19,12 +19,12 @@ Distributed training requires the gradients to be synchronized during the proces
 * `N` instances of the training pipeline are instantiated on `N` accelerators.
 * Every accelerator then injests data independently and produces gradients corresponding to its specific sub-batch of data.
 * By reducing the gradients over all the instances, we can simulate training over all the sub-batches at once.
-  * By default, the gradients are averaged over all avaliable instances of the model, but this behaviour can be customised in [`ResNetImageNet.sync_buffer`]()
+  * By default, the gradients are averaged over all avaliable instances of the model, but this behaviour can be customised in [`FluxDistributed.sync_buffer`]()
 
 ### Single Node Parallelism
 
 ```@docs
-ResNetImageNet.sync_buffer
+FluxDistributed.sync_buffer
 ```
 
 `sync_buffer` currently requires maintaining preallocated memory on one of the accelerator units in order to not pay the price for allocations with every synchnorization step. It makes a call to `copyto!` and in case the accelerators are not connected via a P2P mechanism, can cause implicit serialization to the CPU, hurting performance significantly.
@@ -32,10 +32,10 @@ ResNetImageNet.sync_buffer
 ### Multi Node Parallelism
 
 !!! Note
-    The multi-node parallelism pipeline is currently disabled, but available in the repository for expermential purposes via `ResNetImageNet.syncgrads`.
+    The multi-node parallelism pipeline is currently disabled, but available in the repository for expermential purposes via `FluxDistributed.syncgrads`.
 
 ```@docs
-ResNetImageNet.syncgrads
+FluxDistributed.syncgrads
 ```
 
 Note that `syncgrads` currently requires serialization of gradients from every device with every iteration of the data loader. This is inefficient and has been surpassed with techniques involving "data layers" such as Nvidia NCCL or UCX which work to perform reduction over several GPUs in a better optimised manner. This is under developement in the Julia ecosystem as well.
@@ -66,7 +66,7 @@ This looks very similar to the typical supervised learning training loop from Fl
 In fact, it is! With the addition of the synchronization part, we can also extend it to several forms of semi-supervised and unsupervised learning scenarios. This is part of the future work of this pacakge, and something actively being researched in the Julia community and elsewhere.
 
 ```@docs
-ResNetImageNet.train_step
-ResNetImageNet.update
-ResNetImageNet.train
+FluxDistributed.train_step
+FluxDistributed.update
+FluxDistributed.train
 ```
