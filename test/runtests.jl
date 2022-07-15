@@ -1,6 +1,6 @@
-using ResNetImageNet, DataSets, Flux, Metalhead
+using FluxDistributed, DataSets, Flux, Metalhead
 using CUDA
-using ResNetImageNet.Optimisers, ResNetImageNet.Functors
+using FluxDistributed.Optimisers, FluxDistributed.Functors
 using Test
 
 function compare(y::Tuple, ŷ::Tuple)

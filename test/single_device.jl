@@ -20,7 +20,7 @@ function check_data_parallel(m, data = rand(Float32, 224,224,3,3); field = :weig
 
   final = reduce(distributedgrads_x3[2:end], init = distributedgrads_x3[1]) do x, y
     Functors.fmap(x, y) do x, y
-      ResNetImageNet._accum(x,y)
+      FluxDistributed._accum(x,y)
     end
   end
 
@@ -86,13 +86,13 @@ function test_grad_syncing_in_train(loss, m, nt, buffer, opt,
     x = gpu_data[colons_data..., j:j]
     y = gpu_labels[colons_labels..., j:j]
     gs = Threads.@spawn begin
-      ResNetImageNet.train_step(loss, buffer, dev, m, x, y)
+      FluxDistributed.train_step(loss, buffer, dev, m, x, y)
     end
     push!(ts, Base.errormonitor(gs))
   end
   gs = ts
   wait.(gs)
-  final = ResNetImageNet.sync_buffer(buffer)
+  final = FluxDistributed.sync_buffer(buffer)
   final, batchedgrads
 end
 
@@ -103,7 +103,7 @@ function check_distributed_opt(opt, ds_and_ms, buffer, gs, sts)
     dev, m = dnm
     g = buffer[dev]
     t_opt = Threads.@spawn begin
-      m, st = ResNetImageNet.update(opt, dnm, g, gs, sts[dev])
+      m, st = FluxDistributed.update(opt, dnm, g, gs, sts[dev])
       sts[dev] = st
       m
     end
@@ -117,16 +117,16 @@ end
   data = rand(Float32, 32, 32, 3, 3)
   labels = Flux.onehotbatch(rand(1:10, 3), 1:10)
   m = Chain(Conv((7,7), 3 => 3), Flux.flatten, Dense(2028, 10))
-  opt = ResNetImageNet.Optimisers.Momentum()
+  opt = FluxDistributed.Optimisers.Momentum()
   nt, buffer = if CUDA.functional()
     classes = 1:1000
     key = open(BlobTree, DataSets.dataset("imagenet_cyclops")) do data_tree
-      ResNetImageNet.train_solutions(data_tree, path"LOC_train_solution.csv", classes)
+      FluxDistributed.train_solutions(data_tree, path"LOC_train_solution.csv", classes)
     end
 
     if length(CUDA.devices()) == 1
-      zmodel = ResNetImageNet.destruct(m)
-      st = ResNetImageNet.Optimisers.state(opt, m)
+      zmodel = FluxDistributed.destruct(m)
+      st = FluxDistributed.Optimisers.state(opt, m)
       buffer = Dict(i => deepcopy(gpu(zmodel)) for i = 1:size(data, ndims(data)))
       ds_and_ms = ntuple(i -> (i, deepcopy(gpu(m))), size(data, ndims(data)))
       sts = Dict(i => deepcopy(gpu(st)) for i = 1:size(data, ndims(data)))
@@ -143,8 +143,8 @@ end
   else
     @warn "in the no gpu case"
     ds_and_ms = ntuple(i -> (i, deepcopy(m)), size(data, ndims(data)))
-    zmodel = ResNetImageNet.destruct(m)
-    st = ResNetImageNet.Optimisers.state(opt, m)
+    zmodel = FluxDistributed.destruct(m)
+    st = FluxDistributed.Optimisers.state(opt, m)
     buffer = Dict(i => deepcopy(zmodel) for i = 1:size(data, ndims(data)))
     sts = Dict(i => deepcopy(st) for i = 1:size(data, ndims(data)))
     (sts = sts, ds_and_ms = ds_and_ms), buffer

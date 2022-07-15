@@ -7,9 +7,9 @@ This is done via the [DataSets.jl](https://github.com/JuliaComputing/DataSets.jl
 Using DataSets.jl we can represent a data storage driver which can be used to perform tasks such downloading and encoding etc with a shared API across backends. This package also includes a `Data.toml` which describes the ImageNet dataset used to train our models. This may be swapped out for a different dataset as needed.
 
 ```@docs
-ResNetImageNet.minibatch
-ResNetImageNet.train_solutions
-ResNetImageNet.labels
-ResNetImageNet.topkaccuracy
-ResNetImageNet.showpreds
+FluxDistributed.minibatch
+FluxDistributed.train_solutions
+FluxDistributed.labels
+FluxDistributed.topkaccuracy
+FluxDistributed.showpreds
 ```

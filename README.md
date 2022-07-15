@@ -1,6 +1,6 @@
 # Data Parallel Training for Flux.jl
 
-[![Docs](https://img.shields.io/badge/Docs-dev-blue)](https://dhairyalgandhi.github.io/ResNetImageNet.jl/dev)
+[![Docs](https://img.shields.io/badge/Docs-dev-blue)](https://dhairyalgandhi.github.io/FluxDistributed.jl/dev)
 
 Modern large scale deep learning models have increased in size and number of parameters substaintially. This aims to provide tools and mechanisms to scale training of Flux.jl models over multiple GPUs. 
 
@@ -19,7 +19,7 @@ Start Julia with the environment of the package activated. This is currently nec
 Here is an example of a simple task based parallel training demo.
 
 ```julia
-julia> using ResNetImageNet, Metalhead, Flux, CUDA, Optimisers, DataSets
+julia> using FluxDistributed, Metalhead, Flux, CUDA, Optimisers, DataSets
 
 julia> classes = 1:1000
 1:1000
@@ -27,11 +27,11 @@ julia> classes = 1:1000
 julia> model = ResNet34();
 
 julia> key = open(BlobTree, DataSets.dataset("imagenet")) do data_tree
-         ResNetImageNet.train_solutions(data_tree, path"LOC_train_solution.csv", classes)
+         FluxDistributed.train_solutions(data_tree, path"LOC_train_solution.csv", classes)
        end;
 
 julia> val = open(BlobTree, DataSets.dataset("imagenet")) do data_tree
-         ResNetImageNet.train_solutions(data_tree, path"LOC_val_solution.csv", classes)
+         FluxDistributed.train_solutions(data_tree, path"LOC_val_solution.csv", classes)
        end;
 
 julia> opt = Optimisers.Momentum()
@@ -46,7 +46,7 @@ julia> setup, buffer = prepare_training(model, key,
 julia> loss = Flux.Losses.logitcrossentropy
 logitcrossentropy (generic function with 1 method)
 
-julia> ResNetImageNet.train(loss, setup, buffer, opt,
+julia> FluxDistributed.train(loss, setup, buffer, opt,
                             val = val,
                             sched = identity);
 ```
@@ -78,7 +78,7 @@ In order to hook into your favourite MLOps backend, it is possible to set up log
 [Wandb.jl](https://github.com/avik-pal/Wandb.jl) has unofficial bindings for the wandb.ai platform. 
 
 ```julia
-using ResNetImageNet, Flux, Metalhead
+using FluxDistributed, Flux, Metalhead
 using Wandb, Logging
 
 lg = WandbLogger(project = "DDP",
@@ -87,6 +87,6 @@ lg = WandbLogger(project = "DDP",
                  step_increment = 1)
 
 with_logger(lg) do
-  ResNetImageNet.train(...)
+  FluxDistributed.train(...)
 end
 ```

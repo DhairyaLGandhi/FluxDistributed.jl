@@ -96,13 +96,13 @@ function sync_buffer(buffer)
     Functors.fmap(x, y) do x, y
        isnothing(x) && return y
        isnothing(y) && return x
-       ResNetImageNet._accum(x,y)
+       FluxDistributed._accum(x,y)
     end
   end
 
   final = Functors.fmap(final) do x
     isnothing(x) && return x
-    ResNetImageNet._dodiv(x, Float32(length(vals)))
+    FluxDistributed._dodiv(x, Float32(length(vals)))
   end
 
   final 
@@ -259,7 +259,7 @@ function prepare_training(resnet, key, devices, opt, nsamples;
   ns = Iterators.repeated(nsamples, cycle) # ntuple(_ -> nsamples, 5)
   buffer = Dict()
   zmodel = destruct(resnet)
-  st = ResNetImageNet.Optimisers.state(opt, resnet)
+  st = FluxDistributed.Optimisers.state(opt, resnet)
   for dev in devices
     Threads.@spawn begin
       buffer[dev] = @device! HOST begin
